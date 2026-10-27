@@ -1,6 +1,7 @@
 // Vercel serverless function for YouTube video search, so the API key stays on Vercel
 // (YOUTUBE_API_KEY) and never reaches the tablet.
 //   GET /api/youtube?q=Stelvio&long=1  -> { items: [{ id, title, channel, thumb, dur }] }
+//   GET /api/youtube?q=techno&music=1  -> same, music videos only
 //   501 { error: "noKey" } when YOUTUBE_API_KEY is not set
 const YT = "https://www.googleapis.com/youtube/v3";
 
@@ -14,6 +15,7 @@ module.exports = async (req, res) => {
     const s = new URL(YT + "/search");
     Object.entries({ part: "snippet", type: "video", maxResults: 24, videoEmbeddable: "true", q, key }).forEach(([k, v]) => s.searchParams.set(k, v));
     if(p.get("long") === "1") s.searchParams.set("videoDuration", "long");
+    if(p.get("music") === "1") s.searchParams.set("videoCategoryId", "10");   // Music
     const r = await fetch(s), j = await r.json();
     if(!r.ok) return res.status(r.status).json({ error: [j.error?.errors?.[0]?.reason, j.error?.message].filter(Boolean).join(": ") || String(r.status) });
     const items = (j.items || []).filter(i => i.id?.videoId), durs = {};

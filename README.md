@@ -7,9 +7,39 @@ Aplikacija za vožnju na trenažeru u pregledniku, bez instalacije. Cijela aplik
 - **Spajanje opreme preko Web Bluetootha:** trenažer (FTMS, npr. Direto XR-T), pulsmetar i Zwift Click (v1 i v2). Uređaje koje si jednom spojio aplikacija sama spaja kad se upale.
 - **ERG treninzi:** ugrađeni treninzi (izdržljivost, sweet spot, VO2max, prag, ramp test) i uvoz `.zwo` datoteka iz Zwifta. Snaga se računa iz FTP-a, a intenzitet se mijenja s − i +.
 - **Slobodna vožnja i GPX rute:** 24 virtualne brzine sa Zwiftovim omjerima. Kod GPX rute trenažer prati nagib terena.
-- **YouTube video** uz vožnju: pretraga (uz besplatni API ključ) ili zalijepljen link. Gumb **Cijeli zaslon** prikazuje video preko cijelog ekrana sa snagom, ciljem ili nagibom, intervalom, kadencom, pulsom, vremenom i brzinom preko slike. YouTubeov vlastiti gumb za cijeli zaslon je isključen jer bi sakrio te podatke.
+- **Ugrađeni usponi:**
+  - Sljeme (Cener), Učka – Vojak (od Poklona), Biokovo – Sveti Jure;
+  - Alpe d'Huez, Mont Ventoux (Bédoin), Passo dello Stelvio (Prato).
+
+  To su virtualne rute bez GPS traga, napravljene iz objavljenih nagiba po dionicama, pa je profil približan. Vožnja se sprema s visinom, ali bez karte. Za pravu rutu uvezi GPX.
+- **Pedal drills** (po uzoru na Zwiftove *Pedalling drills* i GC Coaching treninge kadence):
+  - Spin-ups;
+  - Visoka i niska kadenca;
+  - Snaga na niskoj kadenci;
+  - Kadencna piramida;
+  - Jedna noga.
+
+  Svaki interval ima ciljanu kadencu i uputu, npr. „Samo lijeva noga“. Kadenca je zelena kad si u rasponu, a narančasta kad nisi. Glas najavljuje kadencu i javlja prosjek nakon svakog drilla. Uvoz `.zwo` čita i Zwiftove atribute `Cadence` i `CadenceResting`.
+- **YouTube video** uz vožnju: pretraga (uz besplatni API ključ) ili zalijepljen link. Gumb **Cijeli zaslon** prikazuje video preko cijelog ekrana sa snagom, ciljem ili nagibom, intervalom, kadencom, pulsom, vremenom i brzinom preko slike. YouTubeov vlastiti gumb za cijeli zaslon je isključen jer bi sakrio te podatke. Iza metrike je profil kao u Zwiftu: blokovi treninga u bojama zona (ili visinski profil rute), bijela crta snage i crvena crta pulsa. Puls se crta i na profilu ispod videa.
+- **Bez videa:** gumb **Bez videa: profil treninga** pretvara prostor za video u veliki profil treninga s metrikom na dnu, kao u cijelom zaslonu. Aplikacija pamti odabir.
+- **Glazba s YouTube Musica:** zalijepi link pjesme, albuma ili playliste (YouTube Music → Podijeli → Kopiraj vezu) ili potraži glazbu. Svira u malom prozoru u kutu, uz video ili uz profil, i ne pauzira se kad pauziraš vožnju. Poseban API ne treba: YouTube Music nema javni API, ali su njegove pjesme i playliste obični YouTube videi i playliste. Pretraga koristi isti `YOUTUBE_API_KEY` uz filtar na kategoriju Music, a linkovi rade i bez ključa.
 - **Povijest:** metrike svake vožnje (NP, IF, TSS, kJ, najbolje snage) i izvoz u `.FIT` za Stravu, intervals.icu ili GoldenCheetah.
 - **intervals.icu:** svaka spremljena vožnja automatski ide na intervals.icu. Ako tablet nije na internetu, vožnja čeka i pošalje se kad se veza vrati.
+- **Izvještaj vožnje** (u sažetku na kraju i gumb **Izvještaj** u Povijesti), kao u Zwiftu:
+  - graf snage u bojama zona s crtom pulsa;
+  - tablica intervala s ciljem i izvedbom u %, uz broj pogođenih intervala (unutar ±5%);
+  - raspodjela snage i vrijeme u zonama pulsa;
+  - krivulja snage uspoređena s najboljom iz zadnjih 90 dana.
+- **Zone pulsa** iz maksimalnog pulsa u Postavkama (Z1 do 60%, Z2 60–70%, Z3 70–80%, Z4 80–90%, Z5 iznad). Puls je obojen po zoni u vožnji i u cijelom zaslonu.
+- **Intervali i dionice:** nakon svakog intervala kratko piše „Interval 4: 264 W od 265 (100%)“. U slobodnoj vožnji i na ruti svakih 5 km piše vrijeme, snaga i puls dionice.
+- **Glasovne najave na hrvatskom:** početak treninga, „Za 10 sekundi: 3 minute na 265 vata“, rezultat intervala i dionice, kraj treninga. Isključuju se u Postavkama.
+- **Trening po pulsu:** treninzi *Z2 po pulsu 60* i *90* sami namještaju snagu da puls ostane na 70% maksimalnog. Snaga se mijenja polako (najviše 1 W u sekundi) jer puls kasni za snagom. Tipke − i + mijenjaju ciljani puls za 2 bpm.
+- **Lagani start, bez „zakucavanja“:**
+  - prije starta i u pauzi trenažer je na ravnoj cesti umjesto ERG-a;
+  - nakon Kreni ili Nastavi otpor ostaje lagan dok kadenca ne prijeđe 55 rpm, a zatim se snaga (ERG) ili nagib (ruta, slobodna vožnja) kroz 12 sekundi vraća na zadano. Brzina na Clicku ili zaslonu se ne mijenja;
+  - ako u ERG-u kadenca padne ispod 45 rpm na 3 sekunde, otpor se spusti i opet postupno vrati;
+  - u treningu po pulsu snaga se ne diže 60 sekundi nakon nastavka, kad je kadenca ispod 70 ni kad pulsmetar ne šalje podatke.
+- Simulator ima i izmišljeni puls koji prati snagu, da se sve može isprobati bez pulsmetra.
 - **Napredak:** forma (CTL/ATL/TSB), tjedni volumen, najbolje snage i kretanje FTP-a.
 - **Sigurnosna kopija:** sve vožnje, treninzi, rute i postavke u jednoj `.json` datoteci.
 
