@@ -132,7 +132,7 @@ a.btn{display:inline-block;color:inherit;text-decoration:none}
 .music{position:absolute;right:10px;top:54px;z-index:4;width:min(356px,calc(100% - 20px));background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,.35)}
 .music-bar{display:flex;align-items:center;gap:8px;padding:5px 6px 5px 12px;font-size:13px;color:var(--muted)}
 .music-bar b{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text);font-weight:500}
-.music-bar button{border:0;background:var(--panel2);border-radius:8px;padding:3px 9px;color:var(--text)}
+.music-bar button{border:0;background:var(--panel2);border-radius:8px;padding:3px 9px;color:var(--text);min-width:32px;min-height:30px}
 .stage .music iframe{position:static;display:block;width:100%;height:auto;aspect-ratio:16/9;border:0}
 .music.min iframe{height:0;aspect-ratio:auto}
 /* metrics over the video in fullscreen */
@@ -334,7 +334,7 @@ dialog.wide .sum{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}
       <div class="o-paused" id="o-paused" hidden>Pauza</div>
       <div class="o-msg" id="o-msg" hidden></div>
       <div class="music" id="music" hidden>
-        <div class="music-bar"><span>♪</span><b id="music-title">Glazba</b><button type="button" id="mus-min" aria-label="Smanji">–</button><button type="button" id="mus-stop" aria-label="Zaustavi glazbu">✕</button></div>
+        <div class="music-bar"><span>♪</span><b id="music-title">Glazba</b><button type="button" id="mus-prev" aria-label="Prethodna pjesma">⏮</button><button type="button" id="mus-play" aria-label="Pauza ili nastavak glazbe">⏸</button><button type="button" id="mus-next" aria-label="Sljedeća pjesma">⏭</button><button type="button" id="mus-min" aria-label="Smanji">–</button><button type="button" id="mus-stop" aria-label="Zaustavi glazbu">✕</button></div>
         <div id="music-frame"></div>
       </div>
       <div class="vid-tools" id="vid-tools" hidden>
@@ -1237,7 +1237,8 @@ function setMusic(m, play = true){
   f.src = m.id ? `https://www.youtube.com/embed/${m.id}?${q}${m.list ? "&list=" + encodeURIComponent(m.list) : ""}`
     : `https://www.youtube.com/embed/videoseries?list=${encodeURIComponent(m.list)}&${q}`;
   f.allow = "autoplay; encrypted-media"; f.title = "Glazba";
-  fr.append(f); box.hidden = false; box.classList.remove("min"); $("#music-title").textContent = m.title || (m.list ? "Playlista" : "Glazba");
+  fr.append(f); box.hidden = false; box.classList.remove("min");
+  musicOn = play; $("#mus-play").textContent = play ? "⏸" : "▶"; $("#mus-prev").hidden = $("#mus-next").hidden = !m.list; $("#music-title").textContent = m.title || (m.list ? "Playlista" : "Glazba");
   store.set("music", m);
 }
 const MUS_CHIPS = ["Workout mix", "Techno za trening", "Rock za trening", "Drum and bass", "Lo-fi", "Hrvatski hitovi", "Epska motivacija"];
@@ -1268,6 +1269,12 @@ $("#mus-form").onsubmit = e => { e.preventDefault(); const q = $("#mus-url").val
   if(/^https?:|youtu/.test(q)){ $("#mus-url").value = ""; musicFromLink(q); } else searchMusic(q); };
 MUS_CHIPS.forEach(c => { const b = document.createElement("button"); b.type = "button"; b.textContent = c; b.onclick = () => { $("#mus-url").value = c; searchMusic(c); }; $("#mus-chips").append(b); });
 $("#mus-stop").onclick = () => setMusic(null);
+/* the music player takes the same postMessage commands as the video player */
+let musicOn = false;
+function musicCmd(func){ const f = $("#music-frame iframe"); if(f) f.contentWindow.postMessage(JSON.stringify({ event: "command", func, args: [] }), "*"); }
+$("#mus-prev").onclick = () => { musicCmd("previousVideo"); musicOn = true; $("#mus-play").textContent = "⏸"; };
+$("#mus-next").onclick = () => { musicCmd("nextVideo"); musicOn = true; $("#mus-play").textContent = "⏸"; };
+$("#mus-play").onclick = () => { musicOn = !musicOn; musicCmd(musicOn ? "playVideo" : "pauseVideo"); $("#mus-play").textContent = musicOn ? "⏸" : "▶"; };
 $("#mus-min").onclick = () => { const m = $("#music"); m.classList.toggle("min"); $("#mus-min").textContent = m.classList.contains("min") ? "+" : "–"; };
 $("#btn-dash").onclick = () => setDash();
 $("#btn-voice-test").onclick = () => { hrVoice = null; say("Za 10 sekundi: 3 minute na 265 vata, kadenca 90 do 100.", true); };
