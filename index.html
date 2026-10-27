@@ -118,6 +118,28 @@ a.btn{display:inline-block;color:inherit;text-decoration:none}
 .field input{flex:1;min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
 .vid-tools{position:absolute;right:10px;top:10px;display:flex;gap:6px;z-index:2}
 .vid-tools .btn{background:rgba(21,27,38,.78);backdrop-filter:blur(6px)}
+/* metrics over the video in fullscreen */
+.ovl{display:none;position:absolute;left:0;right:0;bottom:0;z-index:2;pointer-events:none;align-items:flex-end;flex-wrap:wrap;gap:10px;padding:48px 18px max(16px,env(safe-area-inset-bottom));background:linear-gradient(transparent,rgba(8,11,17,.85) 60%)}
+.stage:fullscreen{background:#000}
+.stage:fullscreen .ovl{display:flex}
+.stage:fullscreen #btn-vid-change{display:none}
+.ovl>div{background:rgba(21,27,38,.72);border-radius:12px;padding:6px 14px 8px}
+.ovl small{display:block;color:var(--muted);font-size:14px;font-weight:500}
+.ovl b{font:700 46px/1 var(--num);font-variant-numeric:tabular-nums}
+.ovl i{font:600 18px/1 var(--num);font-style:normal;color:var(--muted);margin-left:4px}
+.ovl .o-pw{border-left:6px solid var(--zone);transition:border-color .6s}
+.ovl .o-pw b{font-size:92px;line-height:.95}
+.ovl .o-pw i{font-size:28px}
+.ovl .o-tgt{display:block;font:700 30px/1.1 var(--num);color:var(--zone);transition:color .6s}
+.ovl .o-iv small:last-child{margin-top:2px}
+.o-paused{position:absolute;left:50%;top:40%;transform:translate(-50%,-50%);z-index:2;pointer-events:none;background:rgba(21,27,38,.82);border-radius:14px;padding:10px 22px;font:700 40px/1 var(--num);display:none}
+.stage:fullscreen .o-paused:not([hidden]){display:block}
+@media (max-width: 900px), (max-height: 520px){
+  .ovl{flex-wrap:nowrap;gap:6px;padding:30px 10px max(10px,env(safe-area-inset-bottom))}
+  .ovl>div{padding:4px 10px 6px} .ovl small{font-size:12px} .ovl i{font-size:14px}
+  .ovl b{font-size:28px} .ovl .o-pw b{font-size:52px} .ovl .o-pw i{font-size:20px} .ovl .o-tgt{font-size:18px}
+  .ovl #o-iv-next{display:none}
+}
 
 /* lists */
 h1{font:700 40px/1.05 var(--num);margin:4px 0 4px}
@@ -263,6 +285,15 @@ dialog p{color:var(--muted);margin:0 0 14px}
     </section>
 
     <section class="stage" id="stage">
+      <div class="ovl" id="ovl" aria-hidden="true">
+        <div class="o-pw"><b id="o-pw">0</b><i>W</i><span class="o-tgt" id="o-tgt"></span></div>
+        <div class="o-iv" id="o-iv-box"><small id="o-iv-lbl"></small><b id="o-iv">0:00</b><small id="o-iv-next"></small></div>
+        <div><small>Kadenca</small><b id="o-cad">–</b><i>rpm</i></div>
+        <div><small>Puls</small><b id="o-hr">–</b><i>bpm</i></div>
+        <div><small>Vrijeme</small><b id="o-time">0:00</b></div>
+        <div><small id="o-x-lbl">Brzina</small><b id="o-x">0.0</b><i id="o-x-unit">km/h</i></div>
+      </div>
+      <div class="o-paused" id="o-paused" hidden>Pauza</div>
       <div class="vid-tools" id="vid-tools" hidden>
         <button class="btn small" id="btn-vid-change">Promijeni video</button>
         <button class="btn small" id="btn-fs">Cijeli zaslon</button>
@@ -811,7 +842,7 @@ function setVideo(id){
   const st = $("#stage"); st.querySelector("iframe")?.remove();
   if(!id){ showPicker(); return; }
   const f = document.createElement("iframe");
-  f.src = `https://www.youtube.com/embed/${id}?enablejsapi=1&playsinline=1&rel=0&modestbranding=1${S.running ? "&autoplay=1" : ""}`;
+  f.src = `https://www.youtube.com/embed/${id}?enablejsapi=1&playsinline=1&rel=0&modestbranding=1&fs=0${S.running ? "&autoplay=1" : ""}`;
   f.allow = "autoplay; encrypted-media; picture-in-picture; fullscreen"; f.title = "YouTube video";
   st.prepend(f); hidePicker(); store.set("video", id);
 }
@@ -954,6 +985,23 @@ function render(){
   sb.classList.toggle("primary", !S.running);
   $("#btn-end").disabled = !S.started;
   drawProfile();
+  renderOverlay(p, tgt, rg);
+}
+
+function renderOverlay(p, tgt, rg){
+  if(document.fullscreenElement !== $("#stage")) return;
+  const o = (id, v) => { const el = $(id); v = String(v); if(el.textContent !== v) el.textContent = v; };
+  o("#o-pw", p);
+  o("#o-tgt", tgt != null ? `cilj ${tgt} W` : rg != null ? `nagib ${rg.toFixed(1)} %` : "");
+  $("#o-tgt").style.color = tgt == null && rg != null ? gradeColor(rg) : "";
+  $("#o-iv-box").hidden = $("#interval-box").hidden;
+  o("#o-iv-lbl", $("#iv-lbl").textContent); o("#o-iv", $("#iv-cd").textContent); o("#o-iv-next", $("#iv-next").textContent);
+  o("#o-cad", S.live.cadence ? Math.round(S.live.cadence) : "–");
+  o("#o-hr", S.live.hr || "–");
+  o("#o-time", fmtTime(S.t));
+  o("#o-x-lbl", S.route ? "Udaljenost" : "Brzina");
+  o("#o-x", S.route ? (S.dist / 1000).toFixed(1) : (S.live.speed || 0).toFixed(1)); o("#o-x-unit", S.route ? "km" : "km/h");
+  $("#o-paused").hidden = !(S.started && !S.running);
 }
 
 function sizeCanvas(cv){ const r = cv.getBoundingClientRect(), d = devicePixelRatio || 1;
@@ -1492,7 +1540,18 @@ $("#vid-form").onsubmit = e => { e.preventDefault(); const q = $("#vid-url").val
 VID_CHIPS.forEach(c => { const b = document.createElement("button"); b.type = "button"; b.textContent = c; b.onclick = () => { $("#vid-url").value = c; searchVideos(c + " cycling", c); }; $("#vid-chips").append(b); });
 $("#btn-vid-change").onclick = () => showPicker();
 $("#btn-vid-back").onclick = () => hidePicker();
-$("#btn-fs").onclick = () => { const el = document.documentElement; document.fullscreenElement ? document.exitFullscreen() : el.requestFullscreen?.().catch(()=>{}); };
+/* fullscreen the video area with metrics on top; on a tablet also turn to landscape */
+$("#btn-fs").onclick = async () => {
+  if(document.fullscreenElement){ document.exitFullscreen(); return; }
+  try{ await $("#stage").requestFullscreen({ navigationUI: "hide" }); }catch{ toast("Cijeli zaslon nije dostupan"); return; }
+  try{ await screen.orientation?.lock?.("landscape"); }catch{}
+};
+document.addEventListener("fullscreenchange", () => {
+  const on = document.fullscreenElement === $("#stage");
+  $("#btn-fs").textContent = on ? "Izađi" : "Cijeli zaslon";
+  if(!on) try{ screen.orientation?.unlock?.(); }catch{}
+  render();
+});
 $("#btn-freeride").onclick = () => setWorkout(null);
 $("#zwo-file").onchange = async e => {
   const saved = store.get("workouts", []); let ok = 0;
