@@ -370,13 +370,11 @@ dialog p{color:var(--muted);margin:0 0 14px}
         <label class="full check"><input name="pauseVideo" type="checkbox"> Pauziraj video kad pauziram trening</label>
         <label class="full check"><input name="autoPause" type="checkbox"> Automatska pauza kad prestanem pedalirati</label>
       </form>
-      <h2 class="section-title">Strava</h2>
-      <p class="note" id="strava-status">Nije povezano.</p>
-      <div class="dlg-acts" style="justify-content:flex-start;margin:10px 0">
-        <button class="btn small primary" id="btn-strava" type="button">Poveži Stravu</button>
-        <button class="btn small danger" id="btn-strava-off" type="button" hidden>Odspoji</button>
-      </div>
-      <label class="check note" style="display:flex"><input type="checkbox" id="strava-auto"> Automatski pošalji svaku spremljenu vožnju na Stravu</label>
+      <h2 class="section-title">intervals.icu</h2>
+      <p class="note">Besplatan servis za analizu treninga. Na intervals.icu otvori <b>Settings → Developer Settings</b>, stvori <b>API key</b> i zalijepi ga ovdje.</p>
+      <div class="field" style="max-width:520px;margin:10px 0"><input id="icu-key" type="text" autocomplete="off" spellcheck="false" placeholder="API ključ" aria-label="intervals.icu API ključ"><button class="btn small" id="btn-icu" type="button">Spremi i provjeri</button></div>
+      <p class="note" id="icu-status"></p>
+      <label class="check note" style="display:flex"><input type="checkbox" id="icu-auto"> Automatski pošalji svaku spremljenu vožnju na intervals.icu</label>
       <h2 class="section-title">Brzine</h2>
       <p class="note">24 virtualne brzine s istim omjerima kao u Zwiftu (0.75 do 5.49). Otpor se računa iz nagiba, brzine i omjera virtualne brzine prema stvarnom omjeru lančanik/Cog, pa zato upiši koliko zubi imaju tvoj prednji lančanik i Cog.</p>
       <h2 class="section-title">Automatsko spajanje</h2>
@@ -1090,10 +1088,10 @@ async function renderHistory(){
     const el = document.createElement("div"); el.className = "item"; const m = r.m;
     el.innerHTML = `<div><h3></h3><div class="metrics"><span><b>${fmtTime(m.duration)}</b></span><span><b>${m.avgP}</b>W prosj.</span><span><b>${m.np}</b>NP</span><span><b>${m.tss}</b>TSS</span><span><b>${m.IF}</b>IF</span>${m.avgHr ? `<span><b>${m.avgHr}</b>bpm</span>` : ""}<span><b>${(m.distance/1000).toFixed(1)}</b>km</span></div>
       <p>Najbolje: 5 s ${m.best.s5} W · 1 min ${m.best.m1} W · 5 min ${m.best.m5 || "–"} W · 20 min ${m.best.m20 || "–"} W</p></div>
-      <div class="acts">${stravaButton(r)}<button class="btn small" data-fit>.FIT</button><button class="btn small danger" data-del>Obriši</button></div><canvas></canvas>`;
+      <div class="acts">${icuButton(r)}<button class="btn small" data-fit>.FIT</button><button class="btn small danger" data-del>Obriši</button></div><canvas></canvas>`;
     el.querySelector("h3").textContent = `${r.name} · ${new Date(r.start).toLocaleDateString("hr-HR", { weekday: "short", day: "numeric", month: "numeric" })} ${new Date(r.start).toLocaleTimeString("hr-HR", { hour: "2-digit", minute: "2-digit" })}`;
     el.querySelector("[data-fit]").onclick = () => downloadFit(r);
-    el.querySelector("[data-strava]")?.addEventListener("click", () => queueStrava(r));
+    el.querySelector("[data-icu]")?.addEventListener("click", () => queueIcu(r));
     el.querySelector("[data-del]").onclick = async () => { if(confirm("Obrisati ovu vožnju?")){ await dbDel(r.id); renderHistory(); } };
     list.append(el);
     requestAnimationFrame(() => { const cv = el.querySelector("canvas"); const [g, W, H] = sizeCanvas(cv); const n = r.samples.length;
@@ -1219,115 +1217,74 @@ async function importBackup(file){
 $("#btn-backup").onclick = () => exportBackup().catch(e => toast("Izvoz nije uspio: " + e.message));
 $("#backup-file").onchange = async e => { const f = e.target.files[0]; e.target.value = ""; if(f) await importBackup(f); };
 
-/* ============ Strava ============
-   OAuth and uploads go through api/strava.js on Vercel, which keeps the client secret.
-   Each ride queued for Strava carries ride.strava = { status: "pending" | "processing" | "done" | "error", uploadId, activityId, error };
-   pending and processing rides are retried on load, when the tablet comes back online and after every save. */
-const stravaAuth = () => store.get("strava", null);
-async function stravaCall(body){
-  const r = await fetch("/api/strava", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+/* ============ intervals.icu ============
+   Uploads go through api/intervals.js on Vercel with the personal API key from Settings.
+   Each ride queued for upload carries ride.icu = { status: "pending" | "done" | "error", activityId, error };
+   pending rides are retried on load, when the tablet comes back online and after every save. */
+const icuKey = () => (settings.icuKey || "").trim();
+async function icuCall(body){
+  const r = await fetch("/api/intervals", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...body, key: icuKey() }) });
   const j = await r.json().catch(() => ({}));
-  if(!r.ok){ const e = new Error(j.error || "Strava greška " + r.status); e.status = r.status; throw e; }
+  if(!r.ok){ const e = new Error(j.error || (r.status === 404 ? "Slanje radi samo na Vercel deployu (treba api/intervals.js)" : "intervals.icu greška " + r.status)); e.status = r.status; throw e; }
   return j;
 }
-function stravaLost(){ store.set("strava", null); renderStrava(); toast("Veza sa Stravom je istekla. Ponovno poveži Stravu u Postavkama."); }
-async function stravaToken(){
-  const a = stravaAuth(); if(!a) return null;
-  if(a.expires_at * 1000 > Date.now() + 60000) return a.access_token;
-  let j; try{ j = await stravaCall({ action: "refresh", refresh_token: a.refresh_token }); }
-  catch(e){ if(e.status === 400 || e.status === 401){ stravaLost(); e.status = 401; } throw e; }
-  store.set("strava", { ...a, access_token: j.access_token, refresh_token: j.refresh_token, expires_at: j.expires_at });
-  return j.access_token;
-}
+const icuAuthError = e => e.status === 401 || e.status === 403;
 function b64(bytes){ let s = ""; for(let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000)); return btoa(s); }
 
-async function stravaConnect(){
-  let cfg;
-  try{ const r = await fetch("/api/strava"); cfg = await r.json(); if(!r.ok) throw new Error(cfg.error); }
-  catch(e){ toast(e instanceof SyntaxError || e.message === "Failed to fetch" ? "Strava radi samo na Vercel deployu (treba api/strava.js)" : e.message); return; }
-  const state = Math.random().toString(36).slice(2); store.set("stravaState", state);
-  const u = new URL("https://www.strava.com/oauth/authorize");
-  Object.entries({ client_id: cfg.clientId, redirect_uri: location.origin + location.pathname, response_type: "code", approval_prompt: "auto", scope: "activity:write", state })
-    .forEach(([k, v]) => u.searchParams.set(k, v));
-  location.href = u;
-}
-/* back from Strava's consent page with ?code=…&state=…&scope=… */
-async function stravaCallback(){
-  const code = params.get("code"), err = params.get("error"), state = params.get("state");
-  if((!code && !err) || !state || state !== store.get("stravaState")) return;
-  store.set("stravaState", null); history.replaceState(null, "", location.pathname); showView("settings");
-  if(err || !(params.get("scope") || "").includes("activity:write")){ toast("Strava nije dopustila slanje vožnji. Pri povezivanju ostavi uključeno učitavanje aktivnosti."); return; }
-  try{
-    const j = await stravaCall({ action: "token", code });
-    store.set("strava", { access_token: j.access_token, refresh_token: j.refresh_token, expires_at: j.expires_at, athlete: [j.athlete?.firstname, j.athlete?.lastname].filter(Boolean).join(" ") });
-    toast("Strava povezana"); renderStrava(); syncStrava();
-  }catch(e){ toast("Povezivanje sa Stravom nije uspjelo: " + e.message); }
-}
-async function stravaDisconnect(){
-  if(!confirm("Odspojiti Stravu? Vožnje koje su već na Stravi ostaju tamo.")) return;
-  try{ const t = await stravaToken(); if(t) await stravaCall({ action: "deauthorize", token: t }); }catch(e){ console.warn("strava deauthorize", e); }
-  store.set("strava", null); renderStrava(); toast("Strava odspojena");
+async function icuSaveKey(){
+  settings.icuKey = $("#icu-key").value.trim(); store.set("settings", settings); store.set("icuAthlete", null);
+  if(!settings.icuKey){ renderIcu(); toast("intervals.icu odspojen"); return; }
+  $("#icu-status").textContent = "Provjeravam…";
+  try{ const j = await icuCall({ action: "athlete" }); store.set("icuAthlete", j.name || String(j.id || "")); toast("intervals.icu povezan"); syncIcu(); }
+  catch(e){ toast(icuAuthError(e) ? "intervals.icu ne prihvaća ovaj API ključ" : e.message); }
+  renderIcu();
 }
 
-/* upload one ride and wait for Strava to process it; returns false when the queue should stop for now */
-async function stravaUpload(r){
-  const s = r.strava;
+/* upload one ride; returns false when the queue should stop for now */
+async function icuUpload(r){
   try{
-    const token = await stravaToken(); if(!token) return false;
-    if(s.status === "pending"){
-      const j = await stravaCall({ action: "upload", token, fit: b64(encodeFit(r)), name: r.name, external_id: r.id + ".fit",
-        description: `Pedala · ${fmtTime(r.m.duration)} · ${r.m.avgP} W prosj. · NP ${r.m.np} W · TSS ${r.m.tss}` });
-      Object.assign(s, { status: "processing", uploadId: j.id_str || String(j.id), error: null }); await dbPut(r); renderHistoryIfOpen();
-    }
-    for(let i = 0; i < 10 && s.status === "processing"; i++){
-      await new Promise(res => setTimeout(res, 2500));
-      const j = await stravaCall({ action: "status", token, uploadId: s.uploadId });
-      if(j.activity_id) Object.assign(s, { status: "done", activityId: String(j.activity_id) });
-      else if(j.error){ const dup = String(j.error).match(/duplicate of.*?(\d+)/); Object.assign(s, dup ? { status: "done", activityId: dup[1] } : { status: "error", error: String(j.error).replace(/<[^>]*>/g, "") }); }
-    }
-    await dbPut(r); return true;
+    const j = await icuCall({ action: "upload", fit: b64(encodeFit(r)), name: r.name, external_id: r.id,
+      description: `Pedala · ${fmtTime(r.m.duration)} · ${r.m.avgP} W prosj. · NP ${r.m.np} W · TSS ${r.m.tss}` });
+    r.icu = { status: "done", activityId: j.id != null ? String(j.id) : null }; await dbPut(r); return true;
   }catch(e){
-    if(e.status === 401){ if(stravaAuth()) stravaLost(); return false; }   // ride stays queued until Strava is connected again
-    if(e.status >= 400 && e.status < 500 && e.status !== 429){ Object.assign(s, { status: "error", error: e.message }); await dbPut(r); return true; }
-    console.warn("strava upload", e); return false;           // offline, rate limit or Strava down: retry later
+    if(icuAuthError(e)){ toast("intervals.icu ne prihvaća API ključ. Provjeri ga u Postavkama."); return false; }   // ride stays queued
+    if(e.status >= 400 && e.status < 500 && e.status !== 404 && e.status !== 429){ r.icu = { status: "error", error: e.message }; await dbPut(r); return true; }
+    console.warn("intervals.icu upload", e); return false;     // offline, rate limit or service down: retry later
   }
 }
-let stravaBusy = false;
-async function syncStrava(){
-  if(stravaBusy || !stravaAuth() || !navigator.onLine) return;
-  stravaBusy = true; let sent = 0;
+let icuBusy = false;
+async function syncIcu(){
+  if(icuBusy || !icuKey() || !navigator.onLine) return;
+  icuBusy = true; let sent = 0;
   try{
-    const queue = (await dbAll()).filter(r => r.strava?.status === "pending" || r.strava?.status === "processing").sort((a, b) => a.start - b.start);
-    for(const r of queue){ if(!await stravaUpload(r)) break; if(r.strava.status === "done") sent++; else if(r.strava.status === "error") toast("Strava: " + r.strava.error); }
-  }catch(e){ console.warn("strava sync", e); }
-  finally{ stravaBusy = false; renderHistoryIfOpen(); }
-  if(sent) toast(sent === 1 ? "Vožnja je na Stravi" : `Na Stravu poslano vožnji: ${sent}`);
+    const queue = (await dbAll()).filter(r => r.icu?.status === "pending").sort((a, b) => a.start - b.start);
+    for(const r of queue){ if(!await icuUpload(r)) break; if(r.icu.status === "done") sent++; else toast("intervals.icu: " + r.icu.error); renderHistoryIfOpen(); }
+  }catch(e){ console.warn("intervals.icu sync", e); }
+  finally{ icuBusy = false; renderHistoryIfOpen(); }
+  if(sent) toast(sent === 1 ? "Vožnja je na intervals.icu" : `Na intervals.icu poslano vožnji: ${sent}`);
 }
-async function queueStrava(r){
-  if(r.strava?.status === "processing") return;
-  r.strava = { status: "pending" }; await dbPut(r); renderHistory(); syncStrava();
-}
-function stravaButton(r){
-  if(!stravaAuth() && r.strava?.status !== "done") return "";
-  const s = r.strava?.status;
-  if(s === "done") return `<a class="btn small" href="https://www.strava.com/activities/${encodeURIComponent(r.strava.activityId)}" target="_blank" rel="noopener">Na Stravi ↗</a>`;
-  if(s === "pending" || s === "processing") return `<button class="btn small" disabled>Šaljem…</button>`;
-  if(s === "error") return `<button class="btn small danger" data-strava title="${String(r.strava.error).replace(/[<>&"]/g, "")}">Ponovi Stravu</button>`;
-  return `<button class="btn small" data-strava>Na Stravu</button>`;
+async function queueIcu(r){ r.icu = { status: "pending" }; await dbPut(r); renderHistory(); syncIcu(); }
+function icuButton(r){
+  const s = r.icu?.status;
+  if(s === "done") return `<a class="btn small" href="https://intervals.icu/${r.icu.activityId ? "activities/" + encodeURIComponent(r.icu.activityId) : "calendar"}" target="_blank" rel="noopener">intervals.icu ↗</a>`;
+  if(!icuKey()) return "";
+  if(s === "pending") return `<button class="btn small" disabled>Šaljem…</button>`;
+  if(s === "error") return `<button class="btn small danger" data-icu title="${String(r.icu.error).replace(/[<>&"]/g, "")}">Ponovi slanje</button>`;
+  return `<button class="btn small" data-icu>Na intervals.icu</button>`;
 }
 const renderHistoryIfOpen = () => { if($("#view-history").classList.contains("active")) renderHistory(); };
-function renderStrava(){
-  const a = stravaAuth();
-  $("#strava-status").textContent = a ? `Povezano${a.athlete ? " kao " + a.athlete : ""}. Vožnje se šalju kao vožnje na trenažeru, a ako tablet nije na internetu, pošalju se kad se veza vrati.`
-    : "Nije povezano. Nakon povezivanja svaka spremljena vožnja ide ravno na Stravu.";
-  $("#btn-strava").hidden = !!a; $("#btn-strava-off").hidden = !a;
-  $("#strava-auto").checked = settings.stravaAuto !== false;
+function renderIcu(){
+  const k = icuKey(), who = store.get("icuAthlete", null);
+  $("#icu-key").value = k;
+  $("#icu-status").textContent = !k ? "Nije povezano." : who != null ? `Povezano${who ? ": " + who : ""}. Ako tablet nije na internetu, vožnje čekaju i pošalju se kad se veza vrati.`
+    : "Ključ je upisan, ali još nije provjeren.";
+  $("#icu-auto").checked = settings.icuAuto !== false;
 }
-$("#btn-strava").onclick = () => stravaConnect();
-$("#btn-strava-off").onclick = () => stravaDisconnect();
-$("#strava-auto").onchange = e => { settings.stravaAuto = e.target.checked; store.set("settings", settings); };
-window.addEventListener("online", () => syncStrava());
-document.addEventListener("visibilitychange", () => { if(document.visibilityState === "visible") syncStrava(); });
+$("#btn-icu").onclick = () => icuSaveKey();
+$("#icu-key").addEventListener("keydown", e => { if(e.key === "Enter"){ e.preventDefault(); icuSaveKey(); } });
+$("#icu-auto").onchange = e => { settings.icuAuto = e.target.checked; store.set("settings", settings); };
+window.addEventListener("online", () => syncIcu());
+document.addEventListener("visibilitychange", () => { if(document.visibilityState === "visible") syncIcu(); });
 
 /* ============ summary ============ */
 let pendingRide = null;
@@ -1356,10 +1313,10 @@ function resetRide(){
   applyControl(); render();
 }
 $("#sum-save").onclick = async () => {
-  const toStrava = !!stravaAuth() && settings.stravaAuto !== false; if(toStrava) pendingRide.strava = { status: "pending" };
-  try{ await dbPut(pendingRide); toast(toStrava ? "Vožnja spremljena, šaljem na Stravu" : "Vožnja spremljena"); navigator.storage?.persist?.().catch(() => {}); }catch(e){ toast("Spremanje nije uspjelo: " + e.message); return; }
+  const toIcu = !!icuKey() && settings.icuAuto !== false; if(toIcu) pendingRide.icu = { status: "pending" };
+  try{ await dbPut(pendingRide); toast(toIcu ? "Vožnja spremljena, šaljem na intervals.icu" : "Vožnja spremljena"); navigator.storage?.persist?.().catch(() => {}); }catch(e){ toast("Spremanje nije uspjelo: " + e.message); return; }
   const r = pendingRide; $("#dlg-summary").close(); resetRide();
-  if(toStrava) syncStrava(); else if(confirm("Skinuti .FIT datoteku sada?")) downloadFit(r); };
+  if(toIcu) syncIcu(); else if(confirm("Skinuti .FIT datoteku sada?")) downloadFit(r); };
 $("#sum-discard").onclick = () => { if(confirm("Odbaciti vožnju bez spremanja?")){ $("#dlg-summary").close(); resetRide(); } };
 $("#sum-resume").onclick = () => { $("#dlg-summary").close(); start(); };
 
@@ -1375,7 +1332,7 @@ $("#settings-form").addEventListener("input", e => { const f = e.currentTarget;
 function showView(v){
   document.querySelectorAll(".tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.view === v));
   document.querySelectorAll(".view").forEach(el => el.classList.toggle("active", el.id === "view-" + v));
-  if(v === "workouts") renderWorkouts(); if(v === "history") renderHistory(); if(v === "progress") renderProgress(); if(v === "settings"){ fillSettings(); renderStrava(); } if(v === "ride") render();
+  if(v === "workouts") renderWorkouts(); if(v === "history") renderHistory(); if(v === "progress") renderProgress(); if(v === "settings"){ fillSettings(); renderIcu(); } if(v === "ride") render();
 }
 document.querySelectorAll(".tabs button").forEach(b => b.onclick = () => showView(b.dataset.view));
 
@@ -1559,7 +1516,7 @@ window.addEventListener("beforeunload", e => { if(S.started){ e.preventDefault()
   const v = store.get("video", null); v ? setVideo(v) : showPicker();
   fillSettings(); render();
   autoConnect();
-  stravaCallback().finally(() => syncStrava());
+  syncIcu();
 })();
 window.__pedala = { S, parseZwo, parseGpx, setRoute, routes, gradeAt, trainerGrade, clickKeys, onClickKey, encodeFit, metrics, allWorkouts, setWorkout, GEARS };
 </script>

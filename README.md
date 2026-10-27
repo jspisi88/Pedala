@@ -1,6 +1,6 @@
 # Pedala
 
-Aplikacija za vožnju na trenažeru u pregledniku, bez instalacije. Cijela aplikacija je jedna datoteka `index.html`. Jedini dio na serveru je mala Vercel funkcija `api/strava.js`, koja služi samo za slanje vožnji na Stravu.
+Aplikacija za vožnju na trenažeru u pregledniku, bez instalacije. Cijela aplikacija je jedna datoteka `index.html`. Jedini dio na serveru je mala Vercel funkcija `api/intervals.js`, koja služi samo za slanje vožnji na intervals.icu.
 
 ## Što radi
 
@@ -9,7 +9,7 @@ Aplikacija za vožnju na trenažeru u pregledniku, bez instalacije. Cijela aplik
 - **Slobodna vožnja i GPX rute:** 24 virtualne brzine sa Zwiftovim omjerima. Kod GPX rute trenažer prati nagib terena.
 - **YouTube video** uz vožnju: pretraga (uz besplatni API ključ) ili zalijepljen link.
 - **Povijest:** metrike svake vožnje (NP, IF, TSS, kJ, najbolje snage) i izvoz u `.FIT` za Stravu, intervals.icu ili GoldenCheetah.
-- **Strava:** svaka spremljena vožnja automatski ide na Stravu. Ako tablet nije na internetu, vožnja čeka i pošalje se kad se veza vrati.
+- **intervals.icu:** svaka spremljena vožnja automatski ide na intervals.icu. Ako tablet nije na internetu, vožnja čeka i pošalje se kad se veza vrati.
 - **Napredak:** forma (CTL/ATL/TSB), tjedni volumen, najbolje snage i kretanje FTP-a.
 - **Sigurnosna kopija:** sve vožnje, treninzi, rute i postavke u jednoj `.json` datoteci.
 
@@ -28,7 +28,7 @@ Bez trenažera možeš isprobati aplikaciju preko **Spoji trenažer → Simulato
 
 ## Deploy na Vercel
 
-Ne treba build ni `vercel.json`. Vercel sam poslužuje `index.html`, a `api/strava.js` pokreće kao serverless funkciju.
+Ne treba build ni `vercel.json`. Vercel sam poslužuje `index.html`, a `api/intervals.js` pokreće kao serverless funkciju.
 
 1. Na vercel.com odaberi **Add New → Project** i uvezi repozitorij `Pedala`.
 2. Framework Preset ostavi na **Other**, a Build Command i Output Directory ostavi prazne.
@@ -36,33 +36,25 @@ Ne treba build ni `vercel.json`. Vercel sam poslužuje `index.html`, a `api/stra
 
 Svaki push na `main` automatski se ponovno deploya.
 
-## Strava
+## intervals.icu
 
-Postavlja se jednom:
+[intervals.icu](https://intervals.icu) je besplatan servis za analizu treninga (forma, krivulja snage, zone). Postavlja se jednom:
 
-1. Na <https://www.strava.com/settings/api> napravi aplikaciju:
-   - **Application Name:** npr. `Pedala`
-   - **Category:** Training
-   - **Website:** adresa tvog deploya, npr. `https://pedala.vercel.app`
-   - **Authorization Callback Domain:** samo domena, bez `https://`, npr. `pedala.vercel.app`
-2. Sa iste stranice prepiši **Client ID** i **Client Secret**.
-3. Na Vercelu otvori **Project → Settings → Environment Variables** i dodaj:
-   - `STRAVA_CLIENT_ID` = Client ID
-   - `STRAVA_CLIENT_SECRET` = Client Secret
-4. Pokreni **Redeploy**, jer se nove varijable vide tek u novom deployu.
-5. Na tabletu otvori **Postavke → Strava → Poveži Stravu** i odobri pristup. Kvačica za učitavanje aktivnosti mora ostati uključena.
+1. Na intervals.icu otvori **Settings → Developer Settings** i stvori **API key**.
+2. Na tabletu otvori **Postavke → intervals.icu**, zalijepi ključ i klikni **Spremi i provjeri**. Ako je ključ ispravan, piše „Povezano: tvoje ime“.
+
+Na Vercelu ne treba postavljati ništa.
 
 Kako radi:
 
-- Client Secret je samo na Vercelu i nikad ne dolazi na tablet. Na tabletu (`localStorage`, ključ `pedala.strava`) je samo pristupni token, koji se automatski obnavlja svakih 6 sati.
-- Nakon spremanja vožnje Pedala napravi `.FIT` i pošalje ga preko `api/strava.js` na Stravu. Vožnja se označi kao vožnja na trenažeru, a vožnja po GPX ruti kao virtualna vožnja.
-- Ako nema interneta, vožnja čeka u redu. Pošalje se kad se veza vrati, kad ponovno otvoriš aplikaciju ili nakon sljedećeg spremanja.
-- U Povijesti svaka vožnja ima gumb **Na Stravu**, **Šaljem…**, **Na Stravi ↗** (otvara aktivnost) ili **Ponovi Stravu** (kad je slanje palo). Tako se mogu poslati i starije vožnje.
-- Ako je vožnja već na Stravi, Strava je odbije kao duplikat, a Pedala je samo poveže s postojećom aktivnošću.
+- Nakon spremanja vožnje Pedala napravi `.FIT` i pošalje ga preko `api/intervals.js` na intervals.icu. Funkcija samo prosljeđuje zahtjev, da aplikacija ne ovisi o tome dopušta li intervals.icu pozive izravno iz preglednika.
+- API ključ je spremljen na tabletu, u postavkama (`localStorage`, `pedala.settings`). Ulazi i u sigurnosnu kopiju, pa tu datoteku ne dijeli s drugima.
+- Ako nema interneta, vožnja čeka u redu. Pošalje se kad se veza vrati, kad ponovno otvoriš aplikaciju ili nakon sljedećeg spremanja. Isto vrijedi ako ključ prestane vrijediti: vožnje čekaju dok ne upišeš novi.
+- U Povijesti svaka vožnja ima gumb **Na intervals.icu**, **Šaljem…**, **intervals.icu ↗** (otvara aktivnost) ili **Ponovi slanje** (kad je slanje palo). Tako se mogu poslati i starije vožnje.
+- intervals.icu ne stvara duplikate: ista datoteka poslana dvaput vraća postojeću aktivnost.
 - Automatsko slanje se isključuje u Postavkama. Tada ostaje ručni gumb u Povijesti.
-- Nova Strava aplikacija radi samo za račun koji ju je napravio („single player mode“), što je za osobnu upotrebu dovoljno.
 
-Na `localhost`-u Strava ne radi bez Vercela. Za lokalni test s funkcijom pokreni `npx vercel dev` (varijable u `.env.local`). Strava kao callback domenu uvijek dopušta i `localhost`.
+Na `localhost`-u slanje ne radi bez Vercela. Za lokalni test s funkcijom pokreni `npx vercel dev`.
 
 ## Gdje se spremaju podaci
 
@@ -98,7 +90,7 @@ TSS i ostale metrike računaju se iz FTP-a koji je bio postavljen u trenutku vo�
 
 Ako želiš vidjeti iste podatke na više uređaja, to su opcije, od najjednostavnije prema najmoćnijoj:
 
-1. **intervals.icu ili Strava:** šalješ `.FIT` nakon vožnje, ručno ili preko njihovog API-ja. Odmah dobiješ vrlo dobru analitiku, a ne trebaš svoj backend.
+1. **intervals.icu** (već ugrađeno): vožnje se automatski šalju nakon spremanja, a analizu radi intervals.icu. Strava API je za nove aplikacije postao dostupan samo uz pretplatu, pa ga Pedala ne koristi. `.FIT` se u Stravu i dalje može uvesti ručno.
 2. **Vercel Blob:** jedna serverless funkcija (`api/rides.js`) sprema JSON kopiju. Jednostavno je, ali bez upita nad podacima.
 3. **Neon Postgres (Vercel Marketplace) ili Supabase:** tablice `rides` (metrike, a sekundni zapis kao JSONB ili u Blobu) i serverless API. Ovo je najbolje ako želiš analitiku kroz SQL i više korisnika. Treba dodati prijavu, npr. Supabase Auth ili tajni token u Vercel Environment Variables.
 
@@ -117,7 +109,7 @@ U svim slučajevima IndexedDB ostaje lokalna baza, pa aplikacija radi i bez inte
 | `dbAll`, `dbPut`, `dbDel` | IndexedDB |
 | `pmc`, `drawProgress` | Kartica Napredak |
 | `exportBackup`, `importBackup` | Sigurnosna kopija |
-| `stravaConnect`, `syncStrava`, `stravaUpload` | Povezivanje sa Stravom i red slanja |
-| `api/strava.js` | Vercel funkcija: OAuth tokeni i upload na Stravu |
+| `icuSaveKey`, `syncIcu`, `icuUpload` | Povezivanje s intervals.icu i red slanja |
+| `api/intervals.js` | Vercel funkcija koja prosljeđuje upload na intervals.icu |
 
 Format uzorka u `ride.samples`: `[t, snaga W, kadenca, puls, brzina cm/s, udaljenost m]`, a za rute još `lat, lon, visina`.
