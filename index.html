@@ -118,6 +118,18 @@ a.btn{display:inline-block;color:inherit;text-decoration:none}
 .field input{flex:1;min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
 .vid-tools{position:absolute;right:10px;top:10px;display:flex;gap:6px;z-index:2}
 .vid-tools .btn{background:rgba(21,27,38,.78);backdrop-filter:blur(6px)}
+/* no-video mode: the workout profile fills the stage, metrics on top like in fullscreen */
+.stage.dash .ovl{display:flex}
+.stage.dash .o-prof{display:block;height:100%;background:linear-gradient(#151b26,#0e131c)}
+.stage.dash .o-paused:not([hidden]),.stage.dash .o-msg:not([hidden]){display:block}
+.stage.picking .ovl,.stage.picking .o-prof{display:none!important}
+/* music: a small YouTube player in the corner of the stage */
+.music{position:absolute;right:10px;top:54px;z-index:4;width:min(356px,calc(100% - 20px));background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,.35)}
+.music-bar{display:flex;align-items:center;gap:8px;padding:5px 6px 5px 12px;font-size:13px;color:var(--muted)}
+.music-bar b{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text);font-weight:500}
+.music-bar button{border:0;background:var(--panel2);border-radius:8px;padding:3px 9px;color:var(--text)}
+.stage .music iframe{position:static;display:block;width:100%;height:auto;aspect-ratio:16/9;border:0}
+.music.min iframe{height:0;aspect-ratio:auto}
 /* metrics over the video in fullscreen */
 .ovl{display:none;position:absolute;left:0;right:0;bottom:0;z-index:3;pointer-events:none;align-items:flex-end;flex-wrap:wrap;gap:10px;padding:0 18px max(16px,env(safe-area-inset-bottom))}
 .o-prof{display:none;position:absolute;left:0;bottom:0;width:100%;height:max(140px,26vh);z-index:2;pointer-events:none;background:linear-gradient(rgba(8,11,17,.25),rgba(8,11,17,.82))}
@@ -226,6 +238,8 @@ dialog.wide .sum{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}
   .controls{grid-column:1/3}
   .dock{border-top:0;padding-top:4px}
   .stage.picking{aspect-ratio:auto}
+  .stage.dash{aspect-ratio:4/3}
+  .music{top:50px;width:min(240px,60%)}
   .stage.picking .picker{position:static;padding:14px 12px 6px}
   .picker h2{font-size:26px}
   .vgrid{grid-template-columns:repeat(2,1fr);gap:10px}
@@ -314,6 +328,10 @@ dialog.wide .sum{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}
       </div>
       <div class="o-paused" id="o-paused" hidden>Pauza</div>
       <div class="o-msg" id="o-msg" hidden></div>
+      <div class="music" id="music" hidden>
+        <div class="music-bar"><span>♪</span><b id="music-title">Glazba</b><button type="button" id="mus-min" aria-label="Smanji">–</button><button type="button" id="mus-stop" aria-label="Zaustavi glazbu">✕</button></div>
+        <div id="music-frame"></div>
+      </div>
       <div class="vid-tools" id="vid-tools" hidden>
         <button class="btn small" id="btn-vid-change">Promijeni video</button>
         <button class="btn small" id="btn-fs">Cijeli zaslon</button>
@@ -321,7 +339,7 @@ dialog.wide .sum{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}
       <div class="picker" id="stage-empty">
         <div class="picker-head">
           <h2>Što gledaš dok voziš?</h2>
-          <button class="btn small" id="btn-vid-back" hidden>Natrag na video</button>
+          <div class="dlg-acts"><button class="btn small" id="btn-dash">Bez videa: profil treninga</button><button class="btn small" id="btn-vid-back" hidden>Natrag na video</button></div>
         </div>
         <form class="field" id="vid-form">
           <input id="vid-url" type="search" enterkeyhint="search" placeholder="Traži vožnju, npr. Stelvio ili Plitvice, ili zalijepi link" aria-label="Traži YouTube video">
@@ -334,6 +352,17 @@ dialog.wide .sum{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}
         <div class="vgrid" id="vid-results"></div>
         <div class="vsect" id="vid-recent-title" hidden>Nedavno gledano</div>
         <div class="vgrid" id="vid-recent"></div>
+        <div class="vsect" style="margin-top:30px">Glazba</div>
+        <p class="note">Pjesma, album ili playlista s YouTube Musica ili YouTubea svira u malom prozoru u kutu, uz video ili uz profil treninga. Zalijepi link iz aplikacije YouTube Music (Podijeli → Kopiraj vezu) ili potraži.</p>
+        <form class="field" id="mus-form" style="margin-top:10px">
+          <input id="mus-url" type="search" enterkeyhint="search" placeholder="Traži glazbu ili zalijepi link s YouTube Musica" aria-label="Traži glazbu">
+          <button class="btn" type="submit">Traži</button>
+        </form>
+        <div class="vchips" id="mus-chips"></div>
+        <div id="mus-msg" class="vmsg" hidden></div>
+        <div class="vgrid" id="mus-results"></div>
+        <div class="vsect" id="mus-recent-title" hidden>Nedavna glazba</div>
+        <div class="vgrid" id="mus-recent"></div>
       </div>
     </section>
 
@@ -924,7 +953,7 @@ function say(text){
 window.speechSynthesis?.addEventListener?.("voiceschanged", () => { hrVoice = null; });
 /* message as a toast and, in fullscreen, over the video */
 function notify(msg){
-  toast(msg);
+  if(!overlayOn()) toast(msg);
   const o = $("#o-msg"); o.textContent = msg; o.hidden = false;
   clearTimeout(notify.t); notify.t = setTimeout(() => { o.hidden = true; }, 6000);
 }
@@ -1072,22 +1101,30 @@ function ytId(url){
   return m ? m[1] : null;
 }
 function setVideo(id){
-  const st = $("#stage"); st.querySelector("iframe")?.remove();
+  const st = $("#stage"); $("#vid-frame")?.remove(); st.classList.remove("dash");
   if(!id){ showPicker(); return; }
-  const f = document.createElement("iframe");
+  const f = document.createElement("iframe"); f.id = "vid-frame";
   f.src = `https://www.youtube.com/embed/${id}?enablejsapi=1&playsinline=1&rel=0&modestbranding=1&fs=0${S.running ? "&autoplay=1" : ""}`;
   f.allow = "autoplay; encrypted-media; picture-in-picture; fullscreen"; f.title = "YouTube video";
-  st.prepend(f); hidePicker(); store.set("video", id);
+  st.prepend(f); hidePicker(); store.set("video", id); store.set("stageMode", "video");
 }
+/* no video: the stage shows the workout profile with the metrics, like fullscreen */
+function setDash(){
+  $("#vid-frame")?.remove(); $("#stage").classList.add("dash");
+  store.set("video", null); store.set("stageMode", "dash"); hidePicker(); render();
+}
+const isDash = () => $("#stage").classList.contains("dash");
 function showPicker(){
-  const st = $("#stage"), hasVid = !!st.querySelector("iframe");
-  if(hasVid){ yt("pauseVideo"); st.querySelector("iframe").hidden = true; }
+  const st = $("#stage"), vf = $("#vid-frame");
+  if(vf){ yt("pauseVideo"); vf.hidden = true; }
   $("#stage-empty").hidden = false; st.classList.add("picking"); $("#vid-tools").hidden = true;
-  $("#btn-vid-back").hidden = !hasVid; renderRecent();
+  $("#btn-vid-back").hidden = !(vf || isDash()); $("#btn-vid-back").textContent = vf ? "Natrag na video" : "Natrag na profil";
+  renderRecent(); renderRecentMusic();
 }
 function hidePicker(){
-  const st = $("#stage"), f = st.querySelector("iframe"); if(f){ f.hidden = false; if(S.running) yt("playVideo"); }
-  $("#stage-empty").hidden = true; st.classList.remove("picking"); $("#vid-tools").hidden = !f;
+  const st = $("#stage"), f = $("#vid-frame"); if(f){ f.hidden = false; if(S.running) yt("playVideo"); }
+  $("#stage-empty").hidden = true; st.classList.remove("picking"); $("#vid-tools").hidden = !(f || isDash());
+  $("#btn-vid-change").textContent = f ? "Promijeni video" : "Odaberi video";
 }
 
 /* video search (YouTube Data API v3) */
@@ -1096,14 +1133,14 @@ const recentVideos = () => store.get("recentVideos", []);
 function rememberVideo(v){ const r = recentVideos().filter(x => x.id !== v.id); r.unshift(v); store.set("recentVideos", r.slice(0, 12)); }
 function isoDur(d){ const m = String(d).match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/); return m ? (+m[1]||0)*3600 + (+m[2]||0)*60 + (+m[3]||0) : 0; }
 const unesc = t => { const e = document.createElement("textarea"); e.innerHTML = t; return e.value; };
-function vidCard(v){
+function vidCard(v, onPick = () => { rememberVideo(v); setVideo(v.id); }){
   const b = document.createElement("button"); b.className = "vcard"; b.type = "button";
   b.innerHTML = `<div class="th"><img loading="lazy" alt=""></div><b></b><small></small>`;
   b.querySelector("img").src = v.thumb || `https://i.ytimg.com/vi/${v.id}/mqdefault.jpg`;
   if(v.dur){ const d = document.createElement("span"); d.className = "dur"; d.textContent = fmtTime(v.dur); b.querySelector(".th").append(d); }
   b.querySelector("b").textContent = v.title || "YouTube video";
   b.querySelector("small").textContent = v.channel || "";
-  b.onclick = () => { rememberVideo(v); setVideo(v.id); };
+  b.onclick = onPick;
   return b;
 }
 function renderRecent(){
@@ -1112,9 +1149,9 @@ function renderRecent(){
 }
 function vidMsg(html){ const m = $("#vid-msg"); m.hidden = !html; m.innerHTML = html || ""; }
 /* search through api/youtube.js with YOUTUBE_API_KEY from Vercel; without it, straight to Google with the key from Settings */
-async function ytSearch(q, long){
+async function ytSearch(q, long, music = false){
   let r = null, j = {};
-  try{ const u = new URL("/api/youtube", location.href); u.searchParams.set("q", q); if(long) u.searchParams.set("long", "1");
+  try{ const u = new URL("/api/youtube", location.href); u.searchParams.set("q", q); if(long) u.searchParams.set("long", "1"); if(music) u.searchParams.set("music", "1");
     r = await fetch(u); j = await r.json().catch(() => ({})); }catch{}     // offline, or opened without Vercel
   if(r?.ok) return j.items;
   if(r && r.status !== 501 && r.status !== 404) throw new Error(j.error || String(r.status));
@@ -1122,6 +1159,7 @@ async function ytSearch(q, long){
   const u = new URL("https://www.googleapis.com/youtube/v3/search");
   Object.entries({ part: "snippet", type: "video", maxResults: 24, videoEmbeddable: "true", q, key }).forEach(([k, v]) => u.searchParams.set(k, v));
   if(long) u.searchParams.set("videoDuration", "long");
+  if(music) u.searchParams.set("videoCategoryId", "10");
   const res = await fetch(u), data = await res.json();
   if(!res.ok) throw new Error(data.error?.errors?.[0]?.reason || data.error?.message || res.status);
   const items = (data.items || []).filter(i => i.id?.videoId), durs = {};
@@ -1155,7 +1193,57 @@ async function playLink(id){
     if(r.ok){ const j = await r.json(); v.title = j.title; v.channel = j.author_name; } }catch{}
   rememberVideo(v); setVideo(id);
 }
-function yt(func){ const f = $("#stage iframe"); if(f) f.contentWindow.postMessage(JSON.stringify({ event: "command", func, args: [] }), "*"); }
+function yt(func){ const f = $("#vid-frame"); if(f) f.contentWindow.postMessage(JSON.stringify({ event: "command", func, args: [] }), "*"); }
+
+/* ============ music ============
+   YouTube Music has no public API, but its songs, albums and playlists are ordinary YouTube video and
+   playlist ids, so they play in a normal YouTube embed and the same search key finds them. */
+function musicRef(text){
+  const t = String(text).trim(); let id = null, list = null;
+  try{ const u = new URL(t); list = u.searchParams.get("list"); id = u.searchParams.get("v") || (u.hostname === "youtu.be" ? u.pathname.slice(1, 12) : null); }catch{}
+  if(!id && !list) id = ytId(t);
+  return id || list ? { id, list } : null;
+}
+function setMusic(m, play = true){
+  const box = $("#music"), fr = $("#music-frame"); fr.innerHTML = "";
+  if(!m){ box.hidden = true; store.set("music", null); return; }
+  const q = `enablejsapi=1&playsinline=1&rel=0${play ? "&autoplay=1" : ""}`, f = document.createElement("iframe");
+  f.src = m.id ? `https://www.youtube.com/embed/${m.id}?${q}${m.list ? "&list=" + encodeURIComponent(m.list) : ""}`
+    : `https://www.youtube.com/embed/videoseries?list=${encodeURIComponent(m.list)}&${q}`;
+  f.allow = "autoplay; encrypted-media"; f.title = "Glazba";
+  fr.append(f); box.hidden = false; box.classList.remove("min"); $("#music-title").textContent = m.title || (m.list ? "Playlista" : "Glazba");
+  store.set("music", m);
+}
+const MUS_CHIPS = ["Workout mix", "Techno za trening", "Rock za trening", "Drum and bass", "Lo-fi", "Hrvatski hitovi", "Epska motivacija"];
+const recentMusic = () => store.get("recentMusic", []);
+function rememberMusic(m){ const k = x => (x.id || "") + (x.list || ""), r = recentMusic().filter(x => k(x) !== k(m)); r.unshift(m); store.set("recentMusic", r.slice(0, 8)); }
+const pickMusic = m => { rememberMusic(m); setMusic(m); hidePicker(); };
+function renderRecentMusic(){
+  const r = recentMusic(), box = $("#mus-recent"); box.innerHTML = "";
+  $("#mus-recent-title").hidden = !r.length; r.forEach(m => box.append(vidCard(m, () => pickMusic(m))));
+}
+function musMsg(html){ const m = $("#mus-msg"); m.hidden = !html; m.innerHTML = html || ""; }
+async function searchMusic(q){
+  musMsg("Tražim…"); $("#mus-results").innerHTML = "";
+  try{
+    const list = (await ytSearch(q, false, true)).map(v => ({ ...v, title: unesc(v.title), channel: unesc(v.channel) }));
+    musMsg(list.length ? "" : "Ništa nije pronađeno. Probaj drugi pojam.");
+    list.slice(0, 12).forEach(v => $("#mus-results").append(vidCard(v, () => pickMusic(v))));
+  }catch(e){ musMsg(e.message === "noKey" ? "Za pretragu treba YouTube API ključ (YOUTUBE_API_KEY na Vercelu). Link s YouTube Musica radi i bez njega." : "Pretraga nije uspjela: " + String(e.message).replace(/[<>]/g, "")); }
+}
+async function musicFromLink(text){
+  const ref = musicRef(text); if(!ref){ toast("To ne izgleda kao link s YouTube Musica ili YouTubea"); return; }
+  const m = { ...ref, title: ref.list && !ref.id ? "Playlista" : "Glazba" };
+  if(ref.id) try{ const r = await fetch(`https://www.youtube.com/oembed?format=json&url=${encodeURIComponent("https://www.youtube.com/watch?v=" + ref.id)}`);
+    if(r.ok){ const j = await r.json(); m.title = j.title; m.channel = j.author_name; } }catch{}
+  pickMusic(m);
+}
+$("#mus-form").onsubmit = e => { e.preventDefault(); const q = $("#mus-url").value.trim(); if(!q) return;
+  if(/^https?:|youtu/.test(q)){ $("#mus-url").value = ""; musicFromLink(q); } else searchMusic(q); };
+MUS_CHIPS.forEach(c => { const b = document.createElement("button"); b.type = "button"; b.textContent = c; b.onclick = () => { $("#mus-url").value = c; searchMusic(c); }; $("#mus-chips").append(b); });
+$("#mus-stop").onclick = () => setMusic(null);
+$("#mus-min").onclick = () => { const m = $("#music"); m.classList.toggle("min"); $("#mus-min").textContent = m.classList.contains("min") ? "+" : "–"; };
+$("#btn-dash").onclick = () => setDash();
 
 /* ============ sound + wake lock ============ */
 let actx;
@@ -1235,8 +1323,9 @@ function render(){
   renderOverlay(p, tgt, rg);
 }
 
+const overlayOn = () => document.fullscreenElement === $("#stage") || isDash() && !$("#stage").classList.contains("picking");
 function renderOverlay(p, tgt, rg){
-  if(document.fullscreenElement !== $("#stage")) return;
+  if(!overlayOn()) return;
   const o = (id, v) => { const el = $(id); v = String(v); if(el.textContent !== v) el.textContent = v; };
   o("#o-pw", p);
   const cs = currentSeg();
@@ -1925,7 +2014,7 @@ $("#gpx-file").onchange = async e => {
   if(!store.set("routes", saved)){ toast("Nema mjesta za još ruta. Ukloni neku staru pa probaj ponovno."); ok = 0; }
   e.target.value = ""; if(ok) toast(`Uvezeno ruta: ${ok}`); renderRoutes();
 };
-window.addEventListener("resize", () => { drawProfile(); drawProgress(); });
+window.addEventListener("resize", () => { drawProfile(); drawProgress(); if(overlayOn()) drawProfile($("#o-prof")); });
 window.addEventListener("beforeunload", e => { if(S.started){ e.preventDefault(); e.returnValue = ""; } });
 
 /* init */
@@ -1933,7 +2022,8 @@ window.addEventListener("beforeunload", e => { if(S.started){ e.preventDefault()
   const lw = store.get("lastWorkout", null); const w = allWorkouts().find(x => x.id === lw); if(w){ S.workout = w; $("#wo-name").textContent = w.name; $("#wo-meta").textContent = w.test ? "" : `· ${fmtTime(totalDur(w))}`; }
   const lr = store.get("lastRoute", null); const rt = allRoutes().find(x => x.id === lr);
   if(rt && !S.workout){ S.route = rt; $("#wo-name").textContent = rt.name; $("#wo-meta").textContent = `· ${(rt.len / 1000).toFixed(1)} km · ↑${rt.gain} m`; }
-  const v = store.get("video", null); v ? setVideo(v) : showPicker();
+  const v = store.get("video", null); v ? setVideo(v) : store.get("stageMode", null) === "dash" ? setDash() : showPicker();
+  const mu = store.get("music", null); if(mu) setMusic(mu, false);
   fillSettings(); render();
   autoConnect();
   fetch("/api/intervals").then(r => r.ok ? r.json() : {}).then(j => { icuServer = !!j.serverKey; }).catch(() => {})
