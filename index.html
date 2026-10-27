@@ -1,0 +1,1289 @@
+<!doctype html>
+<html lang="hr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#151b26">
+<title>Pedala</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#151b26; --panel:#1f2735; --panel2:#262f40; --line:#2f3a4d;
+  --text:#e9edf3; --muted:#8b97aa; --faint:#5d6a80;
+  --z1:#7d8ea8; --z2:#3d8bfd; --z3:#2fbf71; --z4:#f2c230; --z5:#f28c28; --z6:#e5484d;
+  --zone:var(--z1);
+  --num:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --ui:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:400 16px/1.45 var(--ui)}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--z2);outline-offset:2px}
+.app{display:grid;grid-template-rows:auto 1fr;height:100dvh;min-height:0}
+
+/* header */
+.top{display:flex;align-items:center;gap:10px;padding:8px 14px;padding-top:max(8px,env(safe-area-inset-top));border-bottom:1px solid var(--line);flex-wrap:wrap}
+.brand{font:700 22px/1 var(--num);letter-spacing:.5px;margin-right:6px}
+.brand span{color:var(--zone);transition:color .6s}
+.tabs{display:flex;gap:2px;background:var(--panel);border-radius:10px;padding:3px}
+.tabs button{border:0;background:none;padding:6px 12px;border-radius:8px;color:var(--muted);font-weight:500}
+.tabs button[aria-selected="true"]{background:var(--panel2);color:var(--text)}
+.spacer{flex:1}
+.chip{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:5px 12px;font-size:14px;font-weight:500}
+.chip .dot{width:8px;height:8px;border-radius:50%;background:var(--faint)}
+.chip.on .dot{background:var(--z3)}
+.chip.wait .dot{background:var(--z4)}
+
+/* views */
+.view{min-height:0;display:none}
+.view.active{display:block}
+#view-ride.active{display:grid}
+.scroll{overflow:auto;height:100%;padding:18px 16px 40px}
+.wrap{max-width:860px;margin:0 auto}
+
+/* ride layout */
+#view-ride{grid-template-columns:290px 1fr;grid-template-rows:1fr auto;min-height:0;height:100%}
+.hud>*{flex-shrink:0}
+.hud{grid-row:1;grid-column:1;display:flex;flex-direction:column;gap:8px;padding:12px 14px;border-right:1px solid var(--line);overflow:auto;min-height:0}
+.stage{grid-row:1;grid-column:2;position:relative;min-height:0;background:#0e131c;display:flex;align-items:center;justify-content:center}
+.stage iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.dock{grid-row:2;grid-column:1/3;border-top:1px solid var(--line);padding:10px 14px 12px;padding-bottom:max(12px,env(safe-area-inset-bottom))}
+
+.power{position:relative;border-radius:16px;padding:12px 16px 14px;background:var(--panel);overflow:hidden}
+.power::before{content:"";position:absolute;inset:0;background:radial-gradient(120% 90% at 0% 0%,var(--zone),transparent 62%);opacity:.22;transition:background .6s}
+.power>*{position:relative}
+.pw-row{display:flex;align-items:baseline;gap:6px}
+.pw-val{font:700 84px/0.95 var(--num);font-variant-numeric:tabular-nums;color:var(--text)}
+.pw-unit{font:600 22px/1 var(--num);color:var(--muted)}
+.pw-target{margin-top:6px;display:flex;justify-content:space-between;align-items:center;gap:8px;font-weight:500;color:var(--muted);font-size:15px}
+.pw-target b{color:var(--zone);font:700 26px/1 var(--num);transition:color .6s}
+.delta{font:600 18px/1 var(--num);color:var(--muted)}
+
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.stat{background:var(--panel);border-radius:12px;padding:6px 12px}
+.stat small{display:block;color:var(--muted);font-size:13px;font-weight:500}
+.stat strong{font:600 29px/1.05 var(--num);font-variant-numeric:tabular-nums}
+.stat strong i{font-style:normal;font-size:16px;color:var(--muted);margin-left:3px}
+.stat.wide{grid-column:1/3}
+.interval{background:var(--panel);border-radius:12px;padding:10px 12px}
+.interval .lbl{color:var(--muted);font-size:13px;font-weight:500}
+.interval .cd{font:700 42px/1 var(--num);font-variant-numeric:tabular-nums}
+.interval .next{color:var(--muted);font-size:14px;margin-top:2px}
+
+.adjust{display:flex;align-items:center;gap:8px;background:var(--panel);border-radius:12px;padding:8px}
+.adjust button{width:46px;height:42px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);font:700 24px/1 var(--num)}
+.adjust .mid{flex:1;text-align:center}
+.adjust .mid b{display:block;font:700 26px/1 var(--num)}
+.adjust .mid small{color:var(--muted);font-size:13px}
+
+.controls{display:flex;gap:8px;margin-top:auto}
+.btn{border:1px solid var(--line);background:var(--panel2);border-radius:12px;padding:11px 16px;font-weight:600}
+.btn.primary{background:var(--text);color:var(--bg);border-color:var(--text)}
+.btn.grow{flex:1}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn.danger{color:var(--z6)}
+.btn.small{padding:7px 12px;border-radius:10px;font-size:14px}
+
+.profile-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:6px;font-size:14px;color:var(--muted)}
+.profile-head strong{color:var(--text);font-weight:600}
+#profile{display:block;width:100%;height:78px}
+
+/* video picker */
+.stage{align-items:stretch;justify-content:stretch}
+.picker{position:absolute;inset:0;overflow:auto;padding:22px 24px 28px}
+.picker-head .btn{white-space:nowrap}
+.picker-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+.picker h2{font:700 34px/1.05 var(--num);margin:0}
+.vchips{display:flex;gap:6px;flex-wrap:wrap;margin:12px 0 8px}
+.vchips button{border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:5px 12px;font-size:14px;color:var(--text)}
+.vchips button:hover{background:var(--panel2)}
+.vlong{display:inline-flex;align-items:center;gap:8px;font-size:14px;color:var(--muted)}
+.vmsg{margin:14px 0;padding:12px 14px;border-radius:12px;background:var(--panel);color:var(--muted);font-size:15px;max-width:60ch}
+.vmsg b{color:var(--text)}
+.vsect{font:600 20px/1.1 var(--num);margin:20px 0 10px}
+.vgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px 12px}
+.vcard{display:block;text-align:left;background:none;border:0;padding:0;color:inherit;border-radius:12px}
+.vcard .th{position:relative;aspect-ratio:16/9;border-radius:10px;overflow:hidden;background:var(--panel)}
+.vcard img{width:100%;height:100%;object-fit:cover;display:block}
+.vcard .dur{position:absolute;right:6px;bottom:6px;background:rgba(10,13,20,.82);border-radius:6px;padding:1px 6px;font:600 14px/1.4 var(--num)}
+.vcard b{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:14px;font-weight:600;line-height:1.3;margin-top:7px}
+.vcard small{display:block;color:var(--muted);font-size:13px;margin-top:2px}
+.vcard:hover .th{outline:2px solid var(--zone)}
+.field{display:flex;gap:8px}
+.field input{flex:1;min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.vid-tools{position:absolute;right:10px;top:10px;display:flex;gap:6px;z-index:2}
+.vid-tools .btn{background:rgba(21,27,38,.78);backdrop-filter:blur(6px)}
+
+/* lists */
+h1{font:700 40px/1.05 var(--num);margin:4px 0 4px}
+.lead{color:var(--muted);margin:0 0 18px}
+.list{display:flex;flex-direction:column;gap:10px}
+.item{background:var(--panel);border-radius:14px;padding:12px 14px;display:grid;grid-template-columns:1fr auto;gap:6px 12px;align-items:center}
+.item h3{margin:0;font-size:17px;font-weight:600}
+.item p{margin:0;color:var(--muted);font-size:14px}
+.item canvas{grid-column:1/3;width:100%;height:38px;display:block}
+.item .acts{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.metrics{display:flex;gap:14px;flex-wrap:wrap;font-size:14px;color:var(--muted)}
+.metrics b{color:var(--text);font:600 19px/1 var(--num);margin-right:3px}
+.section-title{font:600 22px/1.1 var(--num);margin:26px 0 10px;color:var(--text)}
+.weekbar{display:flex;gap:16px;flex-wrap:wrap;background:var(--panel);border-radius:14px;padding:12px 14px;margin-bottom:14px}
+.weekbar div small{display:block;color:var(--muted);font-size:13px}
+.weekbar div b{font:700 30px/1 var(--num)}
+.form{display:grid;grid-template-columns:1fr 1fr;gap:12px;max-width:520px}
+.form label{display:flex;flex-direction:column;gap:5px;font-size:14px;color:var(--muted);font-weight:500}
+.form input,.form select{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;color:var(--text)}
+.form .full{grid-column:1/3}
+.check{flex-direction:row!important;align-items:center;gap:10px!important;color:var(--text)!important}
+.check input{width:20px;height:20px}
+.note{color:var(--muted);font-size:14px;max-width:62ch}
+
+/* dialogs */
+dialog{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:18px;padding:20px;max-width:min(460px,92vw);width:100%}
+dialog::backdrop{background:rgba(8,11,17,.7)}
+dialog h2{font:700 30px/1.05 var(--num);margin:0 0 6px}
+dialog p{color:var(--muted);margin:0 0 14px}
+.choices{display:flex;flex-direction:column;gap:8px;margin-bottom:14px}
+.choices button{text-align:left;border:1px solid var(--line);background:var(--panel2);border-radius:12px;padding:12px 14px}
+.choices button b{display:block;font-weight:600}
+.choices button small{color:var(--muted)}
+.dlg-acts{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+.sum{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0 16px}
+.sum div{background:var(--panel2);border-radius:10px;padding:8px 10px}
+.sum small{display:block;color:var(--muted);font-size:12px}
+.sum b{font:700 26px/1.05 var(--num)}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:10px 16px;border-radius:12px;font-weight:600;z-index:50;opacity:0;pointer-events:none;transition:opacity .25s}
+.toast.show{opacity:1}
+
+/* responsive: phone/tablet portrait */
+@media (max-width: 860px){
+  .tabs button{padding:6px 9px}
+  #view-ride.active{display:flex;flex-direction:column;overflow:auto}
+  .stage{order:-1;flex-shrink:0}
+  .stage{aspect-ratio:16/9;height:auto;width:100%}
+  .hud{border-right:0;overflow:visible;min-height:auto;display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:10px 12px}
+  .power{grid-column:1/3}
+  .pw-val{font-size:84px}
+  .stat strong{font-size:32px}
+  .stats{grid-column:1/3;grid-template-columns:repeat(3,1fr)}
+  .stat.wide{grid-column:auto}
+  .interval{grid-column:1/3}
+  .adjust{grid-column:1/3}
+  .controls{grid-column:1/3}
+  .dock{border-top:0;padding-top:4px}
+  .stage.picking{aspect-ratio:auto}
+  .stage.picking .picker{position:static;padding:14px 12px 6px}
+  .picker h2{font-size:26px}
+  .vgrid{grid-template-columns:repeat(2,1fr);gap:10px}
+}
+@media (max-width: 520px){
+  .top{gap:8px}
+  .tabs{order:3;flex:1 1 100%;justify-content:space-between}
+  .tabs button{flex:1}
+  .brand{font-size:19px}
+  .chip{padding:4px 9px;font-size:13px}
+  .form{grid-template-columns:1fr}
+  .form .full{grid-column:1}
+  .stat strong{font-size:28px}
+}
+@media (min-width: 861px) and (max-height: 740px){
+  .stat.opt{display:none}
+  .pw-val{font-size:66px}
+  .interval .cd{font-size:34px}
+}
+@media (prefers-reduced-motion: reduce){ *{transition:none!important} }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="brand">Ped<span>ala</span></div>
+    <nav class="tabs" role="tablist">
+      <button role="tab" data-view="ride" aria-selected="true">Vožnja</button>
+      <button role="tab" data-view="workouts" aria-selected="false">Treninzi</button>
+      <button role="tab" data-view="history" aria-selected="false">Povijest</button>
+      <button role="tab" data-view="settings" aria-selected="false">Postavke</button>
+    </nav>
+    <div class="spacer"></div>
+    <button class="chip" id="chip-trainer"><span class="dot"></span><span>Spoji trenažer</span></button>
+    <button class="chip" id="chip-hr"><span class="dot"></span><span>Puls</span></button>
+    <button class="chip" id="chip-click"><span class="dot"></span><span>Click</span></button>
+  </header>
+
+  <!-- RIDE -->
+  <main class="view active" id="view-ride">
+    <section class="hud" aria-label="Podaci vožnje">
+      <div class="power">
+        <div class="pw-row"><span class="pw-val" id="pw">0</span><span class="pw-unit">W</span><span class="spacer"></span><span class="delta" id="pw-delta"></span></div>
+        <div class="pw-target"><span id="tgt-lbl">Slobodna vožnja</span><b id="tgt"></b></div>
+      </div>
+      <div class="interval" id="interval-box">
+        <div class="lbl" id="iv-lbl">Interval</div>
+        <div class="cd" id="iv-cd">0:00</div>
+        <div class="next" id="iv-next"></div>
+      </div>
+      <div class="stats">
+        <div class="stat"><small>Kadenca</small><strong id="cad">–<i>rpm</i></strong></div>
+        <div class="stat"><small>Puls</small><strong id="hr">–<i>bpm</i></strong></div>
+        <div class="stat"><small>Vrijeme</small><strong id="elapsed">0:00</strong></div>
+        <div class="stat opt"><small>Udaljenost</small><strong id="dist">0.0<i>km</i></strong></div>
+        <div class="stat opt"><small>Brzina</small><strong id="spd">0.0<i>km/h</i></strong></div>
+        <div class="stat"><small>Prosjek</small><strong id="avgp">0<i>W</i></strong></div>
+      </div>
+      <div class="adjust" id="adj-erg">
+        <button id="bias-dn" aria-label="Smanji intenzitet">−</button>
+        <div class="mid"><b id="bias">100%</b><small>Intenzitet</small></div>
+        <button id="bias-up" aria-label="Povećaj intenzitet">+</button>
+      </div>
+      <div class="adjust" id="adj-gear" hidden>
+        <button id="gear-dn" aria-label="Lakša brzina">−</button>
+        <div class="mid"><b id="gear">5</b><small id="gear-sub">Brzina · 0% nagib</small></div>
+        <button id="gear-up" aria-label="Teža brzina">+</button>
+      </div>
+      <div class="controls">
+        <button class="btn primary grow" id="btn-start">Kreni</button>
+        <button class="btn" id="btn-end" disabled>Završi</button>
+      </div>
+    </section>
+
+    <section class="stage" id="stage">
+      <div class="vid-tools" id="vid-tools" hidden>
+        <button class="btn small" id="btn-vid-change">Promijeni video</button>
+        <button class="btn small" id="btn-fs">Cijeli zaslon</button>
+      </div>
+      <div class="picker" id="stage-empty">
+        <div class="picker-head">
+          <h2>Što gledaš dok voziš?</h2>
+          <button class="btn small" id="btn-vid-back" hidden>Natrag na video</button>
+        </div>
+        <form class="field" id="vid-form">
+          <input id="vid-url" type="search" enterkeyhint="search" placeholder="Traži vožnju, npr. Stelvio ili Plitvice, ili zalijepi link" aria-label="Traži YouTube video">
+          <button class="btn" type="submit">Traži</button>
+        </form>
+        <div class="vchips" id="vid-chips"></div>
+        <label class="vlong"><input type="checkbox" id="vid-long" checked> Samo dugi videi (20+ min)</label>
+        <div id="vid-msg" class="vmsg" hidden></div>
+        <div class="vsect" id="vid-res-title" hidden>Rezultati</div>
+        <div class="vgrid" id="vid-results"></div>
+        <div class="vsect" id="vid-recent-title" hidden>Nedavno gledano</div>
+        <div class="vgrid" id="vid-recent"></div>
+      </div>
+    </section>
+
+    <section class="dock">
+      <div class="profile-head"><span><strong id="wo-name">Slobodna vožnja</strong> <span id="wo-meta"></span></span><span id="wo-left"></span></div>
+      <canvas id="profile" aria-label="Profil treninga"></canvas>
+    </section>
+  </main>
+
+  <!-- WORKOUTS -->
+  <main class="view" id="view-workouts">
+    <div class="scroll"><div class="wrap">
+      <h1>Treninzi</h1>
+      <p class="lead">Odaberi trening ili uvezi .zwo datoteke iz Zwifta. Intervali se računaju iz tvog FTP-a.</p>
+      <div class="dlg-acts" style="justify-content:flex-start;margin-bottom:14px">
+        <label class="btn" for="zwo-file" style="display:inline-block">Uvezi .zwo</label>
+        <input id="zwo-file" type="file" accept=".zwo,.xml" multiple hidden>
+        <button class="btn" id="btn-freeride">Slobodna vožnja</button>
+      </div>
+      <div class="list" id="wo-list"></div>
+      <h2 class="section-title">Rute</h2>
+      <p class="note">Uvezi GPX (npr. Stelvio sa Stravine rute). Trenažer prati nagib terena, a brzine mijenjaš Clickom ili tipkama − i +.</p>
+      <div class="dlg-acts" style="justify-content:flex-start;margin:10px 0 14px">
+        <label class="btn" for="gpx-file" style="display:inline-block">Uvezi .gpx</label>
+        <input id="gpx-file" type="file" accept=".gpx,application/gpx+xml" multiple hidden>
+      </div>
+      <div class="list" id="route-list"></div>
+    </div></div>
+  </main>
+
+  <!-- HISTORY -->
+  <main class="view" id="view-history">
+    <div class="scroll"><div class="wrap">
+      <h1>Povijest</h1>
+      <p class="lead">Vožnje se spremaju u ovaj preglednik. Svaku možeš skinuti kao .FIT za Stravu, intervals.icu ili GoldenCheetah.</p>
+      <div class="weekbar" id="weekbar"></div>
+      <div class="list" id="ride-list"></div>
+    </div></div>
+  </main>
+
+  <!-- SETTINGS -->
+  <main class="view" id="view-settings">
+    <div class="scroll"><div class="wrap">
+      <h1>Postavke</h1>
+      <p class="lead">Spremljeno samo na ovom uređaju.</p>
+      <form class="form" id="settings-form">
+        <label>FTP (W)<input name="ftp" type="number" min="80" max="600" step="1"></label>
+        <label>Težina (kg)<input name="weight" type="number" min="30" max="200" step="0.5"></label>
+        <label>Prednji lančanik (zubi)<input name="chainring" type="number" min="20" max="60" step="1"></label>
+        <label>Zwift Cog (zubi)<input name="cog" type="number" min="10" max="30" step="1"></label>
+        <label class="full">YouTube API ključ (za pretragu videa)<input name="ytKey" type="text" autocomplete="off" spellcheck="false" placeholder="AIza…"></label>
+        <p class="full note" style="margin:-4px 0 4px">Besplatan je: na console.cloud.google.com napravi projekt, uključi <b>YouTube Data API v3</b> i pod Credentials stvori API key. Dnevna kvota je dovoljna za oko 100 pretraga. Bez ključa i dalje možeš zalijepiti link.</p>
+        <label class="full check"><input name="beep" type="checkbox"> Zvučni signal na promjeni intervala</label>
+        <label class="full check"><input name="pauseVideo" type="checkbox"> Pauziraj video kad pauziram trening</label>
+        <label class="full check"><input name="autoPause" type="checkbox"> Automatska pauza kad prestanem pedalirati</label>
+      </form>
+      <h2 class="section-title">Brzine</h2>
+      <p class="note">24 virtualne brzine s istim omjerima kao u Zwiftu (0.75 do 5.49). Otpor se računa iz nagiba, brzine i omjera virtualne brzine prema stvarnom omjeru lančanik/Cog, pa zato upiši koliko zubi imaju tvoj prednji lančanik i Cog.</p>
+      <h2 class="section-title">Automatsko spajanje</h2>
+      <p class="note">Trenažer, puls i Click koje si jednom spojio aplikacija sama spaja kad se upale. Prvi put ih spoji ručno.</p>
+      <p class="note" id="bt-auto-note" hidden>Ovaj Chrome ne pamti Bluetooth uređaje. Otvori <b>chrome://flags</b>, uključi <b>Use the new permissions backend for Web Bluetooth</b> i ponovno pokreni Chrome.</p>
+      <h2 class="section-title">Zwift Click</h2>
+      <p class="note">Spoji ga gumbom Click gore desno, nakon što ga odspojiš iz Zwifta. Click v2 ima dva dijela: spoji svaki posebno. Ako tipke rade krivo, postavi ih ispočetka.</p>
+      <div class="dlg-acts" style="justify-content:flex-start;margin:10px 0"><button class="btn small" id="btn-click-cal" type="button">Postavi tipke ispočetka</button></div>
+      <details class="note"><summary>Zadnji paketi s Clicka</summary><pre id="click-log" style="white-space:pre-wrap;font-size:12px;margin:8px 0 0">Još ništa.</pre></details>
+      <h2 class="section-title">Tipkovnica</h2>
+      <p class="note">Razmak: kreni / pauza. Strelice gore i dolje: intenzitet u ERG treningu ili brzina u slobodnoj vožnji.</p>
+    </div></div>
+  </main>
+</div>
+
+<dialog id="dlg-connect">
+  <h2>Spoji trenažer</h2>
+  <p>Direto XR-T se spaja preko Bluetootha (FTMS). Zatvori Zwift i ostale aplikacije koje ga drže spojenim.</p>
+  <div class="choices">
+    <button id="c-ble"><b>Bluetooth trenažer</b><small>Chrome na Androidu ili laptopu</small></button>
+    <button id="c-sim"><b>Simulator</b><small>Za isprobavanje bez trenažera</small></button>
+  </div>
+  <div class="dlg-acts"><button class="btn" data-close>Odustani</button></div>
+</dialog>
+
+<dialog id="dlg-summary">
+  <h2 id="sum-title">Vožnja gotova</h2>
+  <p id="sum-sub"></p>
+  <div class="sum" id="sum-grid"></div>
+  <div id="sum-ftp"></div>
+  <div class="dlg-acts">
+    <button class="btn danger" id="sum-discard">Odbaci</button>
+    <button class="btn" id="sum-resume">Nastavi voziti</button>
+    <button class="btn primary" id="sum-save">Spremi vožnju</button>
+  </div>
+</dialog>
+
+<dialog id="dlg-click">
+  <h2>Postavi tipke na Clicku</h2>
+  <p id="clk-step">Pritisni tipku za težu brzinu (+).</p>
+  <div class="dlg-acts"><button class="btn" data-close>Odustani</button></div>
+</dialog>
+
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+"use strict";
+/* ============ utilities ============ */
+const $ = s => document.querySelector(s);
+const params = new URLSearchParams(location.search);
+const SIM_SPEED = Math.max(1, Math.min(200, +params.get("simspeed") || 1)); // time warp, simulator only
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const fmtTime = s => { s = Math.max(0, Math.round(s)); const h = Math.floor(s/3600), m = Math.floor(s%3600/60), x = s%60;
+  return h ? `${h}:${String(m).padStart(2,"0")}:${String(x).padStart(2,"0")}` : `${m}:${String(x).padStart(2,"0")}`; };
+function toast(msg){ const t=$("#toast"); t.textContent=msg; t.classList.add("show"); clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove("show"),2600); }
+const store = {
+  get(k, d){ try{ const v = localStorage.getItem("pedala."+k); return v==null ? d : JSON.parse(v); }catch{ return d; } },
+  set(k, v){ try{ localStorage.setItem("pedala."+k, JSON.stringify(v)); return true; }catch{ return false; } }
+};
+const settings = Object.assign({ ftp: 230, weight: 80, chainring: 34, cog: 14, clickMap: {}, beep: true, pauseVideo: true, autoPause: true }, store.get("settings", {}));
+const ZONES = [[0.55,"--z1"],[0.76,"--z2"],[0.91,"--z3"],[1.06,"--z4"],[1.21,"--z5"],[99,"--z6"]];
+const zoneVar = frac => ZONES.find(z => frac < z[0])[1];
+const cssVar = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const zoneColor = frac => cssVar(zoneVar(frac));
+
+/* ============ FTMS trainer over Web Bluetooth ============ */
+const FTMS = 0x1826, BIKE_DATA = 0x2ad2, CONTROL = 0x2ad9, HR_SVC = 0x180d, HR_MEAS = 0x2a37;
+
+function parseBikeData(dv){
+  const f = dv.getUint16(0, true); let o = 2; const r = {};
+  if(!(f & 0x0001)){ r.speed = dv.getUint16(o, true) / 100; o += 2; }   // km/h
+  if(f & 0x0002) o += 2;                                                  // avg speed
+  if(f & 0x0004){ r.cadence = dv.getUint16(o, true) / 2; o += 2; }
+  if(f & 0x0008) o += 2;                                                  // avg cadence
+  if(f & 0x0010) o += 3;                                                  // total distance
+  if(f & 0x0020) o += 2;                                                  // resistance level
+  if(f & 0x0040){ r.power = dv.getInt16(o, true); o += 2; }
+  if(f & 0x0080) o += 2;                                                  // avg power
+  if(f & 0x0100) o += 5;                                                  // energy
+  if(f & 0x0200){ r.hr = dv.getUint8(o); o += 1; }
+  return r;
+}
+
+class BleTrainer {
+  constructor(onData, onStatus){ this.onData = onData; this.onStatus = onStatus; this.q = Promise.resolve(); this.lastPower = null; this.lastGrade = null; this.mode = null; }
+  async connect(){ await this.attach(await navigator.bluetooth.requestDevice({ filters: [{ services: [FTMS] }] })); rememberDevice("trainer", this.device); }
+  attach(dev){ this.device = dev; dev.addEventListener("gattserverdisconnected", () => this.reconnect()); return this.setup(); }
+  async setup(){
+    this.onStatus("wait", "Spajam…");
+    const server = await this.device.gatt.connect();
+    const svc = await server.getPrimaryService(FTMS);
+    this.cp = await svc.getCharacteristic(CONTROL);
+    await this.cp.startNotifications();               // indications must be on before writes
+    this.cp.oncharacteristicvaluechanged = e => {
+      const v = e.target.value; if(v.getUint8(0) === 0x80 && v.getUint8(2) !== 0x01) console.warn("FTMS odbio naredbu", v.getUint8(1), "rezultat", v.getUint8(2));
+    };
+    const data = await svc.getCharacteristic(BIKE_DATA);
+    await data.startNotifications();
+    data.oncharacteristicvaluechanged = e => this.onData(parseBikeData(e.target.value));
+    await this.write([0x00]);                         // request control
+    await this.write([0x07]);                         // start / resume
+    this.lastPower = this.lastGrade = null;
+    if(this.mode === "erg" && this.pendingPower != null) this.setPower(this.pendingPower);
+    if(this.mode === "sim" && this.pendingGrade != null) this.setGrade(this.pendingGrade);
+    this.onStatus("on", this.device.name || "Trenažer");
+  }
+  async reconnect(){
+    if(this.closing) return;
+    this.onStatus("wait", "Ponovno spajam…");
+    for(let i = 0; i < 8; i++){
+      try{ await new Promise(r => setTimeout(r, 1500)); await this.setup(); toast("Trenažer ponovno spojen"); return; }
+      catch(e){ console.warn("reconnect", e); }
+    }
+    this.onStatus("off", "Trenažer odspojen");
+  }
+  write(bytes){
+    this.q = this.q.then(() => this.cp && this.cp.writeValueWithResponse(new Uint8Array(bytes))).catch(e => console.warn("FTMS write", e));
+    return this.q;
+  }
+  setPower(w){
+    w = Math.round(clamp(w, 0, 2000)); this.mode = "erg"; this.pendingPower = w;
+    if(w === this.lastPower) return; this.lastPower = w; this.lastGrade = null;
+    this.write([0x05, w & 0xff, (w >> 8) & 0xff]);
+  }
+  setGrade(g){                                          // percent
+    this.mode = "sim"; this.pendingGrade = g;
+    const v = Math.round(g * 100); if(v === this.lastGrade) return; this.lastGrade = v; this.lastPower = null;
+    const gv = v & 0xffff;
+    this.write([0x11, 0x00, 0x00, gv & 0xff, (gv >> 8) & 0xff, 40, 0]); // wind 0, grade, crr .004, cw 0 (aero is in our grade)
+  }
+  disconnect(){ this.closing = true; try{ this.device.gatt.disconnect(); }catch{} }
+}
+
+/* simulator: behaves like an obedient rider on a trainer */
+class SimTrainer {
+  constructor(onData, onStatus){ this.onData = onData; this.onStatus = onStatus; this.target = 150; this.grade = 0; this.mode = "erg"; this.p = 0; }
+  async connect(){
+    this.onStatus("on", "Simulator");
+    this.timer = setInterval(() => {
+      const pedaling = !this.stopped;
+      const cad = pedaling ? 88 + Math.sin(Date.now()/7000) * 4 + (Math.random()-.5)*3 : 0;
+      let goal = this.mode === "erg" ? this.target : 120 + this.grade * 28;
+      if(!pedaling) goal = 0;
+      this.p += (goal - this.p) * 0.35;
+      const power = Math.max(0, Math.round(this.p + (pedaling ? (Math.random()-.5) * 14 : 0)));
+      this.onData({ power, cadence: cad, speed: undefined });
+    }, 250 / SIM_SPEED);
+  }
+  setPower(w){ this.mode = "erg"; this.target = w; }
+  setGrade(g){ this.mode = "sim"; this.grade = g; }
+  disconnect(){ clearInterval(this.timer); }
+}
+
+class BleHR {
+  constructor(onHR, onStatus){ this.onHR = onHR; this.onStatus = onStatus; }
+  async connect(){ await this.attach(await navigator.bluetooth.requestDevice({ filters: [{ services: [HR_SVC] }] })); rememberDevice("hr", this.device); }
+  attach(dev){ this.device = dev; dev.addEventListener("gattserverdisconnected", () => this.reconnect()); return this.setup(); }
+  async setup(){
+    this.onStatus("wait", "Spajam…");
+    const s = await this.device.gatt.connect();
+    const c = await (await s.getPrimaryService(HR_SVC)).getCharacteristic(HR_MEAS);
+    await c.startNotifications();
+    c.oncharacteristicvaluechanged = e => { const v = e.target.value; this.onHR(v.getUint8(0) & 1 ? v.getUint16(1, true) : v.getUint8(1)); };
+    this.onStatus("on", "Puls");
+  }
+  async reconnect(){ for(let i=0;i<8;i++){ try{ await new Promise(r=>setTimeout(r,1500)); await this.setup(); return; }catch{} } this.onStatus("off","Puls"); }
+}
+
+/* ============ workouts ============ */
+// segment: { d: seconds, lo, hi, free? }  lo/hi = fraction of FTP, or watts when workout.abs
+const BUILTIN = [
+  { id:"b-endurance", name:"Izdržljivost 60", desc:"Mirna Z2 vožnja s par kratkih tempo dionica.", segs:[
+    {d:600,lo:.45,hi:.68}, {d:900,lo:.68,hi:.68}, {d:180,lo:.82,hi:.82}, {d:720,lo:.68,hi:.68}, {d:180,lo:.82,hi:.82}, {d:720,lo:.68,hi:.68}, {d:300,lo:.6,hi:.42}]},
+  { id:"b-ss", name:"Sweet spot 3×12", desc:"Klasika za podizanje FTP-a: tri bloka na 88–92%.", segs:[
+    {d:600,lo:.45,hi:.75}, {d:720,lo:.9,hi:.9}, {d:300,lo:.55,hi:.55}, {d:720,lo:.9,hi:.9}, {d:300,lo:.55,hi:.55}, {d:720,lo:.9,hi:.9}, {d:480,lo:.6,hi:.4}]},
+  { id:"b-vo2", name:"VO2max 5×3", desc:"Pet teških trominutnih intervala na 115%.", segs:(() => { const s=[{d:600,lo:.45,hi:.75},{d:60,lo:1,hi:1},{d:240,lo:.55,hi:.55}];
+      for(let i=0;i<5;i++){ s.push({d:180,lo:1.15,hi:1.15}); s.push({d:180,lo:.5,hi:.5}); } s.push({d:420,lo:.6,hi:.4}); return s; })()},
+  { id:"b-thr", name:"Prag 2×20", desc:"Dva duga bloka na 95–100%. Teško, ali isplati se.", segs:[
+    {d:600,lo:.45,hi:.75}, {d:1200,lo:.96,hi:.96}, {d:480,lo:.55,hi:.55}, {d:1200,lo:.96,hi:.96}, {d:420,lo:.6,hi:.4}]},
+  { id:"b-ramp", name:"Ramp test", desc:"Svaku minutu +20 W dok ne možeš više. FTP = 75% najbolje minute. Kad odustaneš, pritisni Završi.", abs:true, test:"ramp", segs:(() => {
+      const s=[{d:300,lo:100,hi:100}]; for(let w=120; w<=700; w+=20) s.push({d:60,lo:w,hi:w}); return s; })()},
+];
+
+function parseZwo(text, fileName){
+  const doc = new DOMParser().parseFromString(text, "application/xml");
+  if(doc.querySelector("parsererror")) throw new Error("Neispravan XML");
+  const root = doc.querySelector("workout"); if(!root) throw new Error("Nema <workout> elementa");
+  const num = (el, ...names) => { for(const n of names){ const v = el.getAttribute(n) ?? el.getAttribute(n.toLowerCase()); if(v != null && v !== "") return parseFloat(v); } return NaN; };
+  const segs = [];
+  for(const el of root.children){
+    const t = el.tagName.toLowerCase(); const d = num(el, "Duration");
+    if(t === "warmup" || t === "cooldown" || t === "ramp"){
+      let lo = num(el,"PowerLow"), hi = num(el,"PowerHigh"); if(isNaN(lo)) lo = hi; if(isNaN(hi)) hi = lo;
+      if(d > 0 && !isNaN(lo)) segs.push({ d, lo, hi });
+    } else if(t === "steadystate" || t === "solidstate"){
+      let p = num(el, "Power"); if(isNaN(p)){ const lo = num(el,"PowerLow"), hi = num(el,"PowerHigh"); p = (lo + hi) / 2; }
+      if(d > 0 && !isNaN(p)) segs.push({ d, lo: p, hi: p });
+    } else if(t === "intervalst"){
+      const n = num(el,"Repeat") || 1, on = num(el,"OnDuration"), off = num(el,"OffDuration");
+      let onP = num(el,"OnPower"), offP = num(el,"OffPower");
+      if(isNaN(onP)) onP = (num(el,"PowerOnLow") + num(el,"PowerOnHigh")) / 2;
+      if(isNaN(offP)) offP = (num(el,"PowerOffLow") + num(el,"PowerOffHigh")) / 2;
+      for(let i = 0; i < n; i++){ if(on > 0) segs.push({ d: on, lo: onP, hi: onP }); if(off > 0) segs.push({ d: off, lo: offP, hi: offP }); }
+    } else if(t === "freeride" || t === "maxeffort"){
+      if(d > 0) segs.push({ d, lo: .5, hi: .5, free: true });
+    }
+  }
+  if(!segs.length) throw new Error("Trening nema intervala");
+  const name = doc.querySelector("workout_file > name")?.textContent.trim() || fileName.replace(/\.(zwo|xml)$/i, "");
+  const desc = doc.querySelector("workout_file > description")?.textContent.trim() || "";
+  return { id: "z-" + Date.now().toString(36) + Math.random().toString(36).slice(2,6), name, desc, segs, imported: true };
+}
+
+const totalDur = w => w.segs.reduce((a, s) => a + s.d, 0);
+const allWorkouts = () => [...BUILTIN, ...store.get("workouts", [])];
+const segFrac = (w, s, frac) => s.lo + (s.hi - s.lo) * frac;
+const toWatts = (w, v) => w.abs ? v : v * settings.ftp;
+
+/* ============ state ============ */
+const S = {
+  trainer: null, hrm: null,
+  live: { power: 0, cadence: 0, speed: 0, hr: 0 }, pBuf: [],
+  workout: null, route: null, bias: 1, gear: 10, v: 0,
+  running: false, started: false, t: 0, woT: 0, startMs: 0,
+  samples: [], dist: 0, lastSeg: -1, idle: 0, autoPaused: false,
+};
+/* virtual gearing: same ratios as Zwift */
+const GEARS = [0.75,0.87,0.99,1.11,1.23,1.38,1.53,1.68,1.86,2.04,2.22,2.40,2.61,2.82,3.03,3.24,3.49,3.74,3.99,4.24,4.54,4.84,5.14,5.49];
+const G = 9.81, CRR = 0.004, CDA_RHO = 0.5 * 1.2 * 0.32, WHEEL_M = 2.105;
+const riderMass = () => settings.weight + 9;
+function roadForce(v, gradePct){ const th = Math.atan(gradePct / 100), m = riderMass(); return m * G * (CRR * Math.cos(th) + Math.sin(th)) + CDA_RHO * v * v; }
+function roadGrade(){ return S.route ? gradeAt(S.route, S.dist) : 0; }
+/* Force the trainer must apply so the pedals feel like the virtual gear on this road:
+   pedal torque = F_road * Gv * R = F_trainer * Gp * R  ->  F_trainer = F_road * Gv / Gp.
+   FTMS sim mode turns grade into force, so we send the grade that produces F_trainer. */
+function trainerGrade(){
+  const Gv = GEARS[S.gear - 1], Gp = settings.chainring / settings.cog;
+  const vWheel = (S.live.cadence || 0) / 60 * Gv * WHEEL_M;          // speed this gear would give at this cadence
+  const F = roadForce(vWheel, roadGrade()) * Gv / Gp;
+  return Math.round(clamp((F / (riderMass() * G) - CRR) * 100, -10, 20) * 10) / 10;
+}
+/* virtual speed with inertia, 10 sub-steps per second */
+function stepSpeed(P, gradePct, dt){
+  const m = riderMass() + 2;
+  for(let i = 0; i < 10; i++){ const v = S.v; S.v = Math.max(0, v + (P / Math.max(v, 1) - roadForce(v, gradePct)) / m * dt / 10); }
+  return S.v;
+}
+
+/* ============ GPX routes ============ */
+const STEP = 10; // metres between resampled points
+function haversine(a, b){ const R = 6371000, r = Math.PI / 180, dLa = (b[0]-a[0])*r, dLo = (b[1]-a[1])*r;
+  const h = Math.sin(dLa/2)**2 + Math.cos(a[0]*r) * Math.cos(b[0]*r) * Math.sin(dLo/2)**2; return 2 * R * Math.asin(Math.sqrt(h)); }
+function parseGpx(text, fileName){
+  const doc = new DOMParser().parseFromString(text, "application/xml");
+  if(doc.querySelector("parsererror")) throw new Error("Neispravan GPX");
+  let nodes = [...doc.getElementsByTagNameNS("*", "trkpt")]; if(!nodes.length) nodes = [...doc.getElementsByTagNameNS("*", "rtept")];
+  const raw = [];
+  for(const n of nodes){ const la = parseFloat(n.getAttribute("lat")), lo = parseFloat(n.getAttribute("lon")), e = parseFloat(n.getElementsByTagNameNS("*", "ele")[0]?.textContent);
+    if(isFinite(la) && isFinite(lo)) raw.push([la, lo, e]); }
+  if(raw.length < 2) throw new Error("GPX nema točaka rute");
+  if(!raw.some(p => isFinite(p[2]))) throw new Error("GPX nema visinu (ele), pa nema profila terena");
+  // fill missing elevations
+  let last = raw.find(p => isFinite(p[2]))[2]; for(const p of raw){ if(isFinite(p[2])) last = p[2]; else p[2] = last; }
+  const cum = [0]; for(let i = 1; i < raw.length; i++) cum.push(cum[i-1] + haversine(raw[i-1], raw[i]));
+  const len = cum.at(-1); if(len < 200) throw new Error("Ruta je kraća od 200 m");
+  const lat = [], lon = [], ele = []; let j = 0;
+  for(let d = 0; d <= len; d += STEP){ while(j < raw.length - 2 && cum[j+1] < d) j++;
+    const seg = cum[j+1] - cum[j] || 1, f = clamp((d - cum[j]) / seg, 0, 1), a = raw[j], b = raw[j+1];
+    lat.push(+(a[0] + (b[0]-a[0])*f).toFixed(6)); lon.push(+(a[1] + (b[1]-a[1])*f).toFixed(6)); ele.push(a[2] + (b[2]-a[2])*f); }
+  // smooth GPS elevation noise over ~80 m
+  const k = 4, sm = ele.map((_, i) => { let a = 0, n = 0; for(let q = Math.max(0, i-k); q <= Math.min(ele.length-1, i+k); q++){ a += ele[q]; n++; } return +(a / n).toFixed(1); });
+  let gain = 0; for(let i = 1; i < sm.length; i++) if(sm[i] > sm[i-1]) gain += sm[i] - sm[i-1];
+  const nm = (doc.querySelector("trk > name") || doc.querySelector("rte > name") || doc.querySelector("metadata > name"))?.textContent.trim();
+  return { id: "g-" + Date.now().toString(36) + Math.random().toString(36).slice(2,6), name: nm || fileName.replace(/\.gpx$/i, ""),
+    len: Math.round(len), gain: Math.round(gain), minEle: Math.min(...sm), maxEle: Math.max(...sm), ele: sm, lat, lon };
+}
+const routes = () => store.get("routes", []);
+function eleAt(r, d){ const x = clamp(d / STEP, 0, r.ele.length - 1), i = Math.floor(x), f = x - i; return r.ele[i] + ((r.ele[i+1] ?? r.ele[i]) - r.ele[i]) * f; }
+function posAt(r, d){ const x = clamp(d / STEP, 0, r.lat.length - 1), i = Math.floor(x), f = x - i, n = Math.min(i + 1, r.lat.length - 1);
+  return [r.lat[i] + (r.lat[n] - r.lat[i]) * f, r.lon[i] + (r.lon[n] - r.lon[i]) * f]; }
+function gradeAt(r, d){ const a = Math.max(0, d - 25), b = Math.min(r.len, d + 25); if(b - a < 5) return 0; return clamp((eleAt(r, b) - eleAt(r, a)) / (b - a) * 100, -20, 25); }
+function climbLeft(r, d){ let up = 0; for(let x = d; x < r.len; x += STEP){ const dz = eleAt(r, Math.min(r.len, x + STEP)) - eleAt(r, x); if(dz > 0) up += dz; } return up; }
+function colGrade(r, d0, d1){ const h = Math.max(60, d1 - d0) / 2, m = (d0 + d1) / 2, a = Math.max(0, m - h), b = Math.min(r.len, m + h); return (eleAt(r, b) - eleAt(r, a)) / (b - a || 1) * 100; }
+const gradeColor = g => cssVar(g < 2 ? "--z2" : g < 5 ? "--z3" : g < 8 ? "--z4" : g < 11 ? "--z5" : "--z6");
+
+function onData(d){
+  if(d.power != null) S.live.power = d.power;
+  if(d.cadence != null) S.live.cadence = d.cadence;
+  if(d.hr && !S.hrm) S.live.hr = d.hr;
+  S.pBuf.push([performance.now(), S.live.power]);
+  const cut = performance.now() - 3000 / (S.trainer instanceof SimTrainer ? SIM_SPEED : 1);
+  while(S.pBuf.length && S.pBuf[0][0] < cut) S.pBuf.shift();
+}
+const power3s = () => S.pBuf.length ? Math.round(S.pBuf.reduce((a, x) => a + x[1], 0) / S.pBuf.length) : 0;
+
+function setChip(id, cls, text){ const c = $(id); c.className = "chip " + cls; c.lastElementChild.textContent = text; }
+
+/* virtual speed from power on flat road (like other apps do), m/s */
+function speedFromPower(P){
+  if(P <= 0) return 0;
+  const m = settings.weight + 9, a = 0.5 * 1.2 * 0.32, b = 0.004 * m * 9.81;
+  let v = 8; for(let i = 0; i < 25; i++){ const f = a*v*v*v + b*v - P, df = 3*a*v*v + b; v -= f / df; } return Math.max(0, v);
+}
+
+/* ============ workout runner ============ */
+function currentSeg(){
+  const w = S.workout; if(!w) return null;
+  let acc = 0;
+  for(let i = 0; i < w.segs.length; i++){ const s = w.segs[i]; if(S.woT < acc + s.d) return { i, s, into: S.woT - acc, left: acc + s.d - S.woT }; acc += s.d; }
+  return null;
+}
+function targetNow(){
+  const c = currentSeg(); if(!c || c.s.free) return null;
+  return Math.round(toWatts(S.workout, segFrac(S.workout, c.s, c.into / c.s.d)) * S.bias);
+}
+function applyControl(){
+  if(!S.trainer) return;
+  const tgt = targetNow();
+  if(tgt != null) S.trainer.setPower(tgt); else S.trainer.setGrade(trainerGrade());
+}
+
+function tick(){
+  const dt = 1;
+  if(S.running){
+    // auto pause when not pedaling for 4 s
+    if(settings.autoPause && S.live.cadence < 5 && S.live.power < 5){ S.idle++; if(S.idle >= 4){ pause(true); return render(); } } else S.idle = 0;
+    S.t += dt; if(S.workout) S.woT += dt;
+    const erg = targetNow() != null;
+    const v = erg ? (S.v = speedFromPower(S.live.power)) : stepSpeed(S.live.power, roadGrade(), dt);
+    S.live.speed = v * 3.6; S.dist += v * dt;
+    const smp = [S.t, Math.round(S.live.power), Math.round(S.live.cadence), S.live.hr || 0, Math.round(v * 100), Math.round(S.dist)];
+    if(S.route){ const [la, lo] = posAt(S.route, S.dist); smp.push(la, lo, Math.round(eleAt(S.route, S.dist) * 10) / 10); }
+    S.samples.push(smp);
+    const c = currentSeg();
+    if(c && c.i !== S.lastSeg){ if(S.lastSeg !== -1 && settings.beep) beep(880, .18); S.lastSeg = c.i; }
+    if(c && settings.beep && c.left <= 3.5 && c.left > 0.5 && c.i < S.workout.segs.length - 1) beep(520, .07);
+    if(S.workout && !c){ finishWorkout(); }
+    if(S.route && S.dist >= S.route.len){ S.dist = S.route.len; finishWorkout(); }
+    applyControl();
+  } else if(S.autoPaused && S.live.cadence > 20){
+    resume();
+  }
+  render();
+}
+
+let tickTimer = null;
+function startClock(){ if(!tickTimer) tickTimer = setInterval(tick, 1000 / (S.trainer instanceof SimTrainer ? SIM_SPEED : 1)); }
+
+function start(){
+  if(!S.trainer){ $("#dlg-connect").showModal(); return; }
+  if(!S.started){ S.started = true; S.startMs = Date.now(); S.samples = []; S.t = 0; S.woT = 0; S.dist = 0; S.v = 0; S.lastSeg = -1; }
+  S.running = true; S.autoPaused = false; S.idle = 0; if(S.trainer.stopped) S.trainer.stopped = false;
+  applyControl(); startClock(); wakeLock(); yt("playVideo"); render();
+}
+function pause(auto){ S.running = false; S.autoPaused = !!auto; if(settings.pauseVideo) yt("pauseVideo"); if(auto) toast("Pauza: nastavi pedalirati za nastavak"); render(); }
+function resume(){ S.running = true; S.autoPaused = false; S.idle = 0; yt("playVideo"); toast("Nastavljam"); }
+function finishWorkout(){ S.running = false; if(settings.beep) beep(660, .4); openSummary(); }
+
+/* ============ metrics ============ */
+function metrics(samples, ftp){
+  const n = samples.length; if(!n) return null;
+  const P = samples.map(s => s[1]);
+  const sum = P.reduce((a, b) => a + b, 0);
+  let np = 0;
+  if(n >= 30){ let roll = 0, acc = 0, cnt = 0; for(let i = 0; i < n; i++){ roll += P[i]; if(i >= 30) roll -= P[i-30]; if(i >= 29){ acc += Math.pow(roll/30, 4); cnt++; } } np = Math.pow(acc / cnt, .25); }
+  else np = sum / n;
+  const IF = np / ftp, tss = (n * np * IF) / (ftp * 3600) * 100;
+  const hrs = samples.map(s => s[3]).filter(h => h > 0), cads = samples.map(s => s[2]).filter(c => c > 0);
+  const best = d => { if(n < d) return 0; let r = 0, b = 0; for(let i = 0; i < n; i++){ r += P[i]; if(i >= d) r -= P[i-d]; if(i >= d-1) b = Math.max(b, r); } return Math.round(b / d); };
+  return {
+    duration: n, distance: samples[n-1][5], avgP: Math.round(sum / n), maxP: Math.max(...P), np: Math.round(np), IF: +IF.toFixed(2), tss: Math.round(tss),
+    avgHr: hrs.length ? Math.round(hrs.reduce((a,b)=>a+b,0)/hrs.length) : 0, maxHr: hrs.length ? Math.max(...hrs) : 0,
+    avgCad: cads.length ? Math.round(cads.reduce((a,b)=>a+b,0)/cads.length) : 0, kj: Math.round(sum / 1000),
+    best: { s5: best(5), m1: best(60), m5: best(300), m20: best(1200) },
+  };
+}
+
+/* ============ FIT encoder ============ */
+const FIT_EPOCH = 631065600;
+const CRC_T = [0x0000,0xCC01,0xD801,0x1400,0xF001,0x3C00,0x2800,0xE401,0xA001,0x6C00,0x7800,0xB401,0x5000,0x9C01,0x8801,0x4400];
+function crc16(crc, b){ let t = CRC_T[crc & 0xF]; crc = (crc >> 4) & 0x0FFF; crc = crc ^ t ^ CRC_T[b & 0xF]; t = CRC_T[crc & 0xF]; crc = (crc >> 4) & 0x0FFF; return crc ^ t ^ CRC_T[(b >> 4) & 0xF]; }
+function encodeFit(ride){
+  const out = [];
+  const T = { s32:[0x85,4,0x7FFFFFFF], enum:[0x00,1,0xFF], u8:[0x02,1,0xFF], u16:[0x84,2,0xFFFF], u32:[0x86,4,0xFFFFFFFF], u32z:[0x8C,4,0] };
+  const defs = {};
+  const put = (v, size) => { for(let i = 0; i < size; i++) out.push((v / Math.pow(256, i)) & 0xFF); };
+  function def(local, global, fields){ defs[local] = fields; out.push(0x40 | local, 0, 0); put(global, 2); out.push(fields.length);
+    for(const [num, type] of fields){ out.push(num, T[type][1], T[type][0]); } }
+  function msg(local, vals){ out.push(local); defs[local].forEach(([, type], i) => { let v = vals[i]; if(v == null || !isFinite(v)) v = T[type][2]; put(Math.round(v) >>> 0, T[type][1]); }); }
+  const ts = ms => Math.floor(ms / 1000) - FIT_EPOCH;
+  const st = ts(ride.start), m = ride.m, end = st + (ride.samples.at(-1)?.[0] ?? 0);
+  const nn = v => v ? v : null;
+  def(0, 0, [[0,"enum"],[1,"u16"],[2,"u16"],[3,"u32z"],[4,"u32"]]);
+  msg(0, [4, 255, 1, (ride.start / 1000) >>> 0, st]);
+  def(1, 21, [[253,"u32"],[0,"enum"],[1,"enum"]]);
+  msg(1, [st, 0, 0]);
+  const sc = 2147483648 / 180;
+  if(ride.route){
+    def(2, 20, [[253,"u32"],[0,"s32"],[1,"s32"],[2,"u16"],[7,"u16"],[4,"u8"],[3,"u8"],[6,"u16"],[5,"u32"]]);
+    for(const s of ride.samples) msg(2, [st + s[0], s[6] * sc, s[7] * sc, (s[8] + 500) * 5, s[1], s[2], nn(s[3]), s[4] * 10, s[5] * 100]);
+  } else {
+    def(2, 20, [[253,"u32"],[7,"u16"],[4,"u8"],[3,"u8"],[6,"u16"],[5,"u32"]]);
+    for(const s of ride.samples) msg(2, [st + s[0], s[1], s[2], nn(s[3]), s[4] * 10, s[5] * 100]);
+  }
+  msg(1, [end, 0, 4]);
+  def(3, 19, [[253,"u32"],[2,"u32"],[7,"u32"],[8,"u32"],[9,"u32"],[19,"u16"],[20,"u16"],[15,"u8"],[16,"u8"],[17,"u8"],[11,"u16"],[25,"enum"],[0,"enum"],[1,"enum"]]);
+  msg(3, [end, st, (end - st) * 1000, m.duration * 1000, m.distance * 100, m.avgP, m.maxP, nn(m.avgHr), nn(m.maxHr), nn(m.avgCad), m.kj, 2, 9, 1]);
+  def(4, 18, [[253,"u32"],[2,"u32"],[7,"u32"],[8,"u32"],[9,"u32"],[5,"enum"],[6,"enum"],[20,"u16"],[21,"u16"],[16,"u8"],[17,"u8"],[18,"u8"],[11,"u16"],[34,"u16"],[35,"u16"],[36,"u16"],[45,"u16"],[25,"u16"],[26,"u16"],[0,"enum"],[1,"enum"]]);
+  msg(4, [end, st, (end - st) * 1000, m.duration * 1000, m.distance * 100, 2, ride.route ? 58 : 6, m.avgP, m.maxP, nn(m.avgHr), nn(m.maxHr), nn(m.avgCad), m.kj, m.np, m.tss * 10, m.IF * 1000, ride.ftp, 0, 1, 8, 1]);
+  def(5, 34, [[253,"u32"],[0,"u32"],[1,"u16"],[2,"enum"],[3,"enum"],[4,"enum"],[5,"u32"]]);
+  const tzOff = -new Date(ride.start).getTimezoneOffset() * 60;
+  msg(5, [end, m.duration * 1000, 1, 0, 26, 1, end + tzOff]);
+  const hdr = [14, 0x20]; const h = []; const p2 = (v, s) => { for(let i=0;i<s;i++) h.push((v / Math.pow(256,i)) & 0xFF); };
+  h.push(...hdr); p2(2132, 2); p2(out.length, 4); h.push(0x2E, 0x46, 0x49, 0x54);
+  let hc = 0; for(const b of h) hc = crc16(hc, b); p2(hc, 2);
+  const all = h.concat(out); let c = 0; for(const b of all) c = crc16(c, b);
+  all.push(c & 0xFF, (c >> 8) & 0xFF);
+  return new Uint8Array(all);
+}
+
+/* ============ IndexedDB ============ */
+const db = (() => { let p; return () => p ||= new Promise((res, rej) => { const r = indexedDB.open("pedala", 1);
+  r.onupgradeneeded = () => r.result.createObjectStore("rides", { keyPath: "id" }); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); })();
+async function dbAll(){ const d = await db(); return new Promise((res, rej) => { const q = d.transaction("rides").objectStore("rides").getAll(); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); }); }
+async function dbPut(v){ const d = await db(); return new Promise((res, rej) => { const t = d.transaction("rides","readwrite"); t.objectStore("rides").put(v); t.oncomplete = res; t.onerror = () => rej(t.error); }); }
+async function dbDel(id){ const d = await db(); return new Promise((res, rej) => { const t = d.transaction("rides","readwrite"); t.objectStore("rides").delete(id); t.oncomplete = res; t.onerror = () => rej(t.error); }); }
+
+/* ============ YouTube ============ */
+function ytId(url){
+  const m = String(url).match(/(?:youtu\.be\/|v=|\/embed\/|\/shorts\/|\/live\/)([\w-]{11})/) || String(url).match(/^([\w-]{11})$/);
+  return m ? m[1] : null;
+}
+function setVideo(id){
+  const st = $("#stage"); st.querySelector("iframe")?.remove();
+  if(!id){ showPicker(); return; }
+  const f = document.createElement("iframe");
+  f.src = `https://www.youtube.com/embed/${id}?enablejsapi=1&playsinline=1&rel=0&modestbranding=1${S.running ? "&autoplay=1" : ""}`;
+  f.allow = "autoplay; encrypted-media; picture-in-picture; fullscreen"; f.title = "YouTube video";
+  st.prepend(f); hidePicker(); store.set("video", id);
+}
+function showPicker(){
+  const st = $("#stage"), hasVid = !!st.querySelector("iframe");
+  if(hasVid){ yt("pauseVideo"); st.querySelector("iframe").hidden = true; }
+  $("#stage-empty").hidden = false; st.classList.add("picking"); $("#vid-tools").hidden = true;
+  $("#btn-vid-back").hidden = !hasVid; renderRecent();
+}
+function hidePicker(){
+  const st = $("#stage"), f = st.querySelector("iframe"); if(f){ f.hidden = false; if(S.running) yt("playVideo"); }
+  $("#stage-empty").hidden = true; st.classList.remove("picking"); $("#vid-tools").hidden = !f;
+}
+
+/* video search (YouTube Data API v3) */
+const VID_CHIPS = ["Dolomiti", "Stelvio", "Alpe d'Huez", "Mallorca", "Jadranska obala", "Toskana", "Norveška", "Švicarske Alpe", "Gravel šuma"];
+const recentVideos = () => store.get("recentVideos", []);
+function rememberVideo(v){ const r = recentVideos().filter(x => x.id !== v.id); r.unshift(v); store.set("recentVideos", r.slice(0, 12)); }
+function isoDur(d){ const m = String(d).match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/); return m ? (+m[1]||0)*3600 + (+m[2]||0)*60 + (+m[3]||0) : 0; }
+const unesc = t => { const e = document.createElement("textarea"); e.innerHTML = t; return e.value; };
+function vidCard(v){
+  const b = document.createElement("button"); b.className = "vcard"; b.type = "button";
+  b.innerHTML = `<div class="th"><img loading="lazy" alt=""></div><b></b><small></small>`;
+  b.querySelector("img").src = v.thumb || `https://i.ytimg.com/vi/${v.id}/mqdefault.jpg`;
+  if(v.dur){ const d = document.createElement("span"); d.className = "dur"; d.textContent = fmtTime(v.dur); b.querySelector(".th").append(d); }
+  b.querySelector("b").textContent = v.title || "YouTube video";
+  b.querySelector("small").textContent = v.channel || "";
+  b.onclick = () => { rememberVideo(v); setVideo(v.id); };
+  return b;
+}
+function renderRecent(){
+  const r = recentVideos(), box = $("#vid-recent"); box.innerHTML = "";
+  $("#vid-recent-title").hidden = !r.length; r.forEach(v => box.append(vidCard(v)));
+}
+function vidMsg(html){ const m = $("#vid-msg"); m.hidden = !html; m.innerHTML = html || ""; }
+async function searchVideos(q, label){
+  const key = settings.ytKey;
+  if(!key){ vidMsg('Za pretragu treba besplatni YouTube API ključ. Upiši ga u <b>Postavke</b>, tamo su i upute. Do tada možeš zalijepiti link videa.'); return; }
+  vidMsg("Tražim…"); $("#vid-results").innerHTML = ""; $("#vid-res-title").hidden = true;
+  try{
+    const u = new URL("https://www.googleapis.com/youtube/v3/search");
+    Object.entries({ part: "snippet", type: "video", maxResults: 24, videoEmbeddable: "true", q, key }).forEach(([k, v]) => u.searchParams.set(k, v));
+    if($("#vid-long").checked) u.searchParams.set("videoDuration", "long");
+    const r = await fetch(u); const j = await r.json();
+    if(!r.ok) throw new Error(j.error?.errors?.[0]?.reason || j.error?.message || r.status);
+    const items = (j.items || []).filter(i => i.id?.videoId);
+    const durs = {};
+    if(items.length){
+      const v = new URL("https://www.googleapis.com/youtube/v3/videos");
+      v.searchParams.set("part", "contentDetails"); v.searchParams.set("id", items.map(i => i.id.videoId).join(",")); v.searchParams.set("key", key);
+      try{ const jr = await (await fetch(v)).json(); (jr.items || []).forEach(x => durs[x.id] = isoDur(x.contentDetails?.duration)); }catch{}
+    }
+    const list = items.map(i => ({ id: i.id.videoId, title: unesc(i.snippet.title), channel: unesc(i.snippet.channelTitle),
+      thumb: i.snippet.thumbnails?.medium?.url, dur: durs[i.id.videoId] || 0 }));
+    vidMsg(list.length ? "" : "Ništa nije pronađeno. Probaj drugi pojam ili isključi filter dugih videa.");
+    $("#vid-res-title").hidden = !list.length; $("#vid-res-title").textContent = `Rezultati za „${label || q}”`;
+    list.forEach(v => $("#vid-results").append(vidCard(v)));
+  }catch(e){
+    const why = String(e.message);
+    vidMsg(why.includes("quota") ? "Dnevna kvota pretraga je potrošena. Resetira se oko 9 ujutro po našem vremenu, a do tada možeš zalijepiti link."
+      : why.includes("keyInvalid") || why.includes("API key") ? "YouTube ne prihvaća API ključ. Provjeri ga u <b>Postavkama</b> i je li uključen YouTube Data API v3."
+      : why.includes("Failed to fetch") ? "Nema veze s YouTubeom. Provjeri internet."
+      : "Pretraga nije uspjela: " + why.replace(/[<>]/g, ""));
+  }
+}
+async function playLink(id){
+  const v = { id, title: "YouTube video", channel: "" };
+  try{ const r = await fetch(`https://www.youtube.com/oembed?format=json&url=${encodeURIComponent("https://www.youtube.com/watch?v=" + id)}`);
+    if(r.ok){ const j = await r.json(); v.title = j.title; v.channel = j.author_name; } }catch{}
+  rememberVideo(v); setVideo(id);
+}
+function yt(func){ const f = $("#stage iframe"); if(f) f.contentWindow.postMessage(JSON.stringify({ event: "command", func, args: [] }), "*"); }
+
+/* ============ sound + wake lock ============ */
+let actx;
+function beep(freq, dur){ try{ actx ||= new AudioContext(); const o = actx.createOscillator(), g = actx.createGain(); o.frequency.value = freq; o.connect(g); g.connect(actx.destination);
+  g.gain.setValueAtTime(.18, actx.currentTime); g.gain.exponentialRampToValueAtTime(.001, actx.currentTime + dur); o.start(); o.stop(actx.currentTime + dur); }catch{} }
+/* Keep the screen on for as long as the app is open.
+   Screen Wake Lock needs https; when it is missing or refused (e.g. file opened from Downloads)
+   fall back to a tiny muted looping video, which Android also treats as "keep awake". */
+let lock, awakeVid;
+const AWAKE_MP4 = "data:video/mp4;base64,AAAAIGZ0eXBpc29tAAACAGlzb21pc28yYXZjMW1wNDEAAANfbW9vdgAAAGxtdmhkAAAAAAAAAAAAAAAAAAAD6AAAD6AAAQAAAQAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAol0cmFrAAAAXHRraGQAAAADAAAAAAAAAAAAAAABAAAAAAAAD6AAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAABAAAAAQAAAAAAAkZWR0cwAAABxlbHN0AAAAAAAAAAEAAA+gAACAAAABAAAAAAIBbWRpYQAAACBtZGhkAAAAAAAAAAAAAAAAAABAAAABAABVxAAAAAAALWhkbHIAAAAAAAAAAHZpZGUAAAAAAAAAAAAAAABWaWRlb0hhbmRsZXIAAAABrG1pbmYAAAAUdm1oZAAAAAEAAAAAAAAAAAAAACRkaW5mAAAAHGRyZWYAAAAAAAAAAQAAAAx1cmwgAAAAAQAAAWxzdGJsAAAAvHN0c2QAAAAAAAAAAQAAAKxhdmMxAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAABAAEABIAAAASAAAAAAAAAABFUxhdmM2MC4zMS4xMDIgbGlieDI2NAAAAAAAAAAAAAAAGP//AAAAMmF2Y0MBZAAK/+EAF2dkAAqs2V7ARAAAAwAEAAADAAg8SJZYAQAEaO+Py/34+AAAAAAQcGFzcAAAAAEAAAABAAAAFGJ0cnQAAAAAAAAF4AAABeAAAAAYc3R0cwAAAAAAAAABAAAABAAAQAAAAAAUc3RzcwAAAAAAAAABAAAAAQAAAChjdHRzAAAAAAAAAAMAAAABAACAAAAAAAEAAQAAAAAAAgAAQAAAAAAcc3RzYwAAAAAAAAABAAAAAQAAAAQAAAABAAAAJHN0c3oAAAAAAAAAAAAAAAQAAALJAAAADQAAAA0AAAANAAAAFHN0Y28AAAAAAAAAAQAAA48AAABidWR0YQAAAFptZXRhAAAAAAAAACFoZGxyAAAAAAAAAABtZGlyYXBwbAAAAAAAAAAAAAAAAC1pbHN0AAAAJal0b28AAAAdZGF0YQAAAAEAAAAATGF2ZjYwLjE2LjEwMAAAAAhmcmVlAAAC+G1kYXQAAAKuBgX//6rcRem95tlIt5Ys2CDZI+7veDI2NCAtIGNvcmUgMTY0IHIzMTA4IDMxZTE5ZjkgLSBILjI2NC9NUEVHLTQgQVZDIGNvZGVjIC0gQ29weWxlZnQgMjAwMy0yMDIzIC0gaHR0cDovL3d3dy52aWRlb2xhbi5vcmcveDI2NC5odG1sIC0gb3B0aW9uczogY2FiYWM9MSByZWY9MSBkZWJsb2NrPTE6LTM6LTMgYW5hbHlzZT0weDM6MHgxMTMgbWU9aGV4IHN1Ym1lPTIgcHN5PTEgcHN5X3JkPTIuMDA6MC43MCBtaXhlZF9yZWY9MCBtZV9yYW5nZT0xNiBjaHJvbWFfbWU9MSB0cmVsbGlzPTAgOHg4ZGN0PTEgY3FtPTAgZGVhZHpvbmU9MjEsMTEgZmFzdF9wc2tpcD0xIGNocm9tYV9xcF9vZmZzZXQ9MCB0aHJlYWRzPTEgbG9va2FoZWFkX3RocmVhZHM9MSBzbGljZWRfdGhyZWFkcz0wIG5yPTAgZGVjaW1hdGU9MSBpbnRlcmxhY2VkPTAgYmx1cmF5X2NvbXBhdD0wIGNvbnN0cmFpbmVkX2ludHJhPTAgYmZyYW1lcz0zIGJfcHlyYW1pZD0yIGJfYWRhcHQ9MSBiX2JpYXM9MCBkaXJlY3Q9MSB3ZWlnaHRiPTEgb3Blbl9nb3A9MCB3ZWlnaHRwPTEga2V5aW50PTI1MCBrZXlpbnRfbWluPTEgc2NlbmVjdXQ9NDAgaW50cmFfcmVmcmVzaD0wIHJjX2xvb2thaGVhZD0xMCByYz1jcmYgbWJ0cmVlPTEgY3JmPTIzLjAgcWNvbXA9MC42MCBxcG1pbj0wIHFwbWF4PTY5IHFwc3RlcD00IGlwX3JhdGlvPTEuNDAgYXE9MToxLjIwAIAAAAATZYiEABfOf+z/wlX/2PZEor//8QAAAAlBmiMYgvnP/vAAAAAJQZ5BQgvnP4aBAAAACQGeYkQXzn+GgA==";
+async function wakeLock(){
+  if(document.visibilityState !== "visible") return;
+  try{ if("wakeLock" in navigator){ if(!lock){ lock = await navigator.wakeLock.request("screen"); lock.addEventListener("release", () => { lock = null; }); } return; } }catch{}
+  try{
+    if(!awakeVid){ awakeVid = document.createElement("video"); awakeVid.muted = true; awakeVid.loop = true; awakeVid.playsInline = true;
+      awakeVid.setAttribute("playsinline", ""); awakeVid.setAttribute("aria-hidden", "true"); awakeVid.src = AWAKE_MP4;
+      awakeVid.style.cssText = "position:fixed;left:0;bottom:0;width:2px;height:2px;opacity:.01;pointer-events:none"; document.body.append(awakeVid); }
+    if(awakeVid.paused) await awakeVid.play();
+  }catch{}
+}
+document.addEventListener("visibilitychange", () => { if(document.visibilityState === "visible") wakeLock(); });
+["pointerdown", "keydown"].forEach(ev => document.addEventListener(ev, () => wakeLock(), { passive: true }));
+
+/* ============ rendering ============ */
+function render(){
+  const p = power3s(), tgt = S.workout ? targetNow() : null, c = currentSeg();
+  $("#pw").textContent = p;
+  const frac = tgt != null ? tgt / settings.ftp : p / settings.ftp;
+  document.documentElement.style.setProperty("--zone", `var(${zoneVar(frac)})`);
+  const rg = S.route ? roadGrade() : null;
+  $("#tgt").textContent = tgt != null ? tgt + " W" : rg != null ? rg.toFixed(1) + " %" : "";
+  $("#tgt").style.color = rg != null && tgt == null ? gradeColor(rg) : "";
+  $("#tgt-lbl").textContent = S.route && tgt == null ? "Nagib" : !S.workout ? "Slobodna vožnja" : c?.s.free ? "Slobodno" : "Cilj";
+  $("#pw-delta").textContent = tgt != null && S.running ? (p - tgt > 0 ? "+" : "") + (p - tgt) : "";
+  $("#cad").innerHTML = (S.live.cadence ? Math.round(S.live.cadence) : "–") + "<i>rpm</i>";
+  $("#hr").innerHTML = (S.live.hr ? S.live.hr : "–") + "<i>bpm</i>";
+  $("#elapsed").textContent = fmtTime(S.t);
+  $("#dist").innerHTML = (S.dist / 1000).toFixed(1) + "<i>km</i>";
+  $("#spd").innerHTML = (S.live.speed || 0).toFixed(1) + "<i>km/h</i>";
+  const avg = S.samples.length ? Math.round(S.samples.reduce((a, s) => a + s[1], 0) / S.samples.length) : 0;
+  $("#avgp").innerHTML = avg + "<i>W</i>";
+
+  const freeNow = !S.workout || c?.s.free;
+  $("#adj-erg").hidden = freeNow; $("#adj-gear").hidden = !freeNow;
+  $("#bias").textContent = Math.round(S.bias * 100) + "%";
+  $("#gear").textContent = S.gear;
+  $("#gear-sub").textContent = `Brzina · omjer ${GEARS[S.gear - 1].toFixed(2)}`;
+
+  const ib = $("#interval-box");
+  if(S.workout && c){
+    ib.hidden = false;
+    $("#iv-lbl").textContent = `Interval ${c.i + 1} od ${S.workout.segs.length}`;
+    $("#iv-cd").textContent = fmtTime(c.left);
+    const n = S.workout.segs[c.i + 1];
+    $("#iv-next").textContent = n ? `Sljedeće: ${fmtTime(n.d)} ${n.free ? "slobodno" : "na " + Math.round(toWatts(S.workout, (n.lo + n.hi) / 2) * S.bias) + " W"}` : "Zadnji interval";
+    $("#wo-left").textContent = S.workout.test ? "Vozi dok možeš, onda Završi" : "Još " + fmtTime(totalDur(S.workout) - S.woT);
+  } else if(S.route){
+    const r = S.route, left = Math.max(0, r.len - S.dist);
+    ib.hidden = false;
+    $("#iv-lbl").textContent = "Do cilja";
+    $("#iv-cd").textContent = (left / 1000).toFixed(left < 10000 ? 2 : 1) + " km";
+    $("#iv-next").textContent = `Još ${Math.round(climbLeft(r, S.dist))} m uspona · visina ${Math.round(eleAt(r, S.dist))} m`;
+    $("#wo-left").textContent = `${(S.dist / 1000).toFixed(1)} / ${(r.len / 1000).toFixed(1)} km`;
+  } else { ib.hidden = true; $("#wo-left").textContent = ""; }
+
+  const sb = $("#btn-start");
+  sb.textContent = !S.started ? "Kreni" : S.running ? "Pauza" : "Nastavi";
+  sb.classList.toggle("primary", !S.running);
+  $("#btn-end").disabled = !S.started;
+  drawProfile();
+}
+
+function sizeCanvas(cv){ const r = cv.getBoundingClientRect(), d = devicePixelRatio || 1;
+  if(cv.width !== Math.round(r.width * d) || cv.height !== Math.round(r.height * d)){ cv.width = Math.round(r.width * d); cv.height = Math.round(r.height * d); }
+  const g = cv.getContext("2d"); g.setTransform(d, 0, 0, d, 0, 0); return [g, r.width, r.height]; }
+
+function drawWorkoutBlocks(g, w, W, H, scaleMax, alpha){
+  const tot = totalDur(w); let x = 0;
+  for(const s of w.segs){
+    const sw = s.d / tot * W, f0 = toWatts(w, s.lo) / settings.ftp, f1 = toWatts(w, s.hi) / settings.ftp;
+    const y0 = H - Math.min(1, f0 / scaleMax) * H, y1 = H - Math.min(1, f1 / scaleMax) * H;
+    g.globalAlpha = s.free ? alpha * .45 : alpha; g.fillStyle = s.free ? cssVar("--faint") : zoneColor((f0 + f1) / 2);
+    g.beginPath(); g.moveTo(x, H); g.lineTo(x, y0); g.lineTo(x + sw, y1); g.lineTo(x + sw, H); g.closePath(); g.fill();
+    x += sw;
+  }
+  g.globalAlpha = 1;
+}
+
+function drawProfile(){
+  const cv = $("#profile"); const [g, W, H] = sizeCanvas(cv); g.clearRect(0, 0, W, H);
+  const w = S.workout;
+  if(S.route && !w){
+    const r = S.route, n = r.ele.length, lo = r.minEle - (r.maxEle - r.minEle) * .08, span = (r.maxEle - lo) * 1.06 || 1;
+    const X = d => d / r.len * W, Y = e => H - (e - lo) / span * H;
+    const cols = Math.max(1, Math.floor(W));
+    for(let x = 0; x < cols; x++){ const d0 = x / cols * r.len, d1 = (x + 1) / cols * r.len, gr = colGrade(r, d0, d1);
+      g.fillStyle = gradeColor(gr); g.fillRect(x, Y(Math.max(eleAt(r, d0), eleAt(r, d1))), 1.2, H); }
+    const cx = X(S.dist);
+    g.fillStyle = "rgba(21,27,38,.55)"; g.fillRect(0, 0, cx, H);
+    g.strokeStyle = cssVar("--text"); g.lineWidth = 1.5; g.beginPath();
+    for(let i = 0; i < n; i += Math.max(1, Math.floor(n / W))){ const x = X(i * STEP), y = Y(r.ele[i]); i ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke();
+    g.fillStyle = cssVar("--text"); g.beginPath(); g.arc(cx, Y(eleAt(r, S.dist)), 5, 0, 7); g.fill();
+    g.fillStyle = cssVar("--muted"); g.font = "500 12px Barlow, system-ui";
+    g.fillText(`${Math.round(r.minEle)}–${Math.round(r.maxEle)} m`, 2, 12);
+    return;
+  }
+  if(w){
+    const tot = totalDur(w);
+    const maxF = Math.max(1.3, ...w.segs.map(s => Math.max(toWatts(w, s.lo), toWatts(w, s.hi)) / settings.ftp)) * 1.08;
+    drawWorkoutBlocks(g, w, W, H, maxF, .9);
+    // done part dimmed
+    const cx = S.woT / tot * W;
+    g.fillStyle = "rgba(21,27,38,.55)"; g.fillRect(0, 0, cx, H);
+    // actual power trace mapped to workout time
+    if(S.samples.length > 1){
+      g.strokeStyle = cssVar("--text"); g.lineWidth = 1.5; g.beginPath();
+      const off = S.t - S.woT; let first = true;
+      for(const s of S.samples){ const wt = s[0] - off; if(wt < 0) continue; const x = wt / tot * W, y = H - Math.min(1, s[1] / settings.ftp / maxF) * H; first ? g.moveTo(x, y) : g.lineTo(x, y); first = false; }
+      g.stroke();
+    }
+    g.fillStyle = cssVar("--text"); g.fillRect(cx - 1, 0, 2, H);
+    // FTP line
+    const fy = H - (1 / maxF) * H; g.strokeStyle = "rgba(233,237,243,.25)"; g.setLineDash([4, 4]); g.beginPath(); g.moveTo(0, fy); g.lineTo(W, fy); g.stroke(); g.setLineDash([]);
+  } else {
+    // free ride: last 20 minutes of power
+    const win = 1200, maxF = 1.6, fy = H - (1 / maxF) * H;
+    g.strokeStyle = "rgba(233,237,243,.25)"; g.setLineDash([4, 4]); g.beginPath(); g.moveTo(0, fy); g.lineTo(W, fy); g.stroke(); g.setLineDash([]);
+    const sm = S.samples.slice(-win);
+    for(const s of sm){ const x = (s[0] - (S.t - win)) / win * W, f = s[1] / settings.ftp; g.fillStyle = zoneColor(f); g.fillRect(x, H - Math.min(1, f / maxF) * H, Math.max(1, W / win + .5), H); }
+    if(!sm.length){ g.fillStyle = cssVar("--muted"); g.font = "500 14px Barlow, system-ui"; g.fillText("Ovdje se crta snaga zadnjih 20 minuta", 0, H / 2); }
+  }
+}
+
+function setWorkout(w){
+  if(S.started && !confirm("Trenutna vožnja će se nastaviti s novim treningom. Nastaviti?")) return;
+  S.workout = w; S.route = null; S.woT = 0; S.lastSeg = -1; S.bias = 1; store.set("lastRoute", null);
+  $("#wo-name").textContent = w ? w.name : "Slobodna vožnja";
+  $("#wo-meta").textContent = w && !w.test ? `· ${fmtTime(totalDur(w))}` : "";
+  store.set("lastWorkout", w ? w.id : null);
+  showView("ride"); applyControl(); render();
+}
+
+function setRoute(r){
+  if(S.started && !confirm("Trenutna vožnja će se nastaviti na novoj ruti od početka. Nastaviti?")) return;
+  S.workout = null; S.route = r; S.dist = 0; S.v = 0; S.bias = 1;
+  $("#wo-name").textContent = r.name;
+  $("#wo-meta").textContent = `· ${(r.len / 1000).toFixed(1)} km · ↑${r.gain} m`;
+  store.set("lastRoute", r.id); store.set("lastWorkout", null);
+  showView("ride"); applyControl(); render();
+}
+function renderRoutes(){
+  const list = $("#route-list"); list.innerHTML = "";
+  const rs = routes();
+  if(!rs.length){ list.innerHTML = `<div class="item"><div><h3>Još nema ruta</h3><p>Uvezi GPX datoteku s visinom, npr. rutu napravljenu u Stravi ili preuzetu s Climbfindera.</p></div></div>`; return; }
+  for(const r of rs){
+    const el = document.createElement("div"); el.className = "item";
+    const avg = r.len ? r.gain / r.len * 100 : 0;
+    el.innerHTML = `<div><h3></h3><p></p></div><div class="acts"><button class="btn small primary" data-pick>Vozi</button><button class="btn small danger" data-del>Ukloni</button></div><canvas></canvas>`;
+    el.querySelector("h3").textContent = r.name;
+    el.querySelector("p").textContent = `${(r.len / 1000).toFixed(1)} km · ↑${r.gain} m · prosječno ${avg.toFixed(1)} % · od ${Math.round(r.minEle)} do ${Math.round(r.maxEle)} m`;
+    el.querySelector("[data-pick]").onclick = () => setRoute(r);
+    el.querySelector("[data-del]").onclick = () => { if(confirm("Ukloniti rutu?")){ store.set("routes", routes().filter(x => x.id !== r.id)); renderRoutes(); } };
+    list.append(el);
+    requestAnimationFrame(() => { const cv = el.querySelector("canvas"); const [g, W, H] = sizeCanvas(cv); const span = (r.maxEle - r.minEle) || 1;
+      for(let x = 0; x < W; x++){ const d0 = x / W * r.len, d1 = (x + 1) / W * r.len, gr = colGrade(r, d0, d1);
+        g.fillStyle = gradeColor(gr); const y = H - 3 - (eleAt(r, d0) - r.minEle) / span * (H - 4); g.fillRect(x, y, 1.2, H - y); } });
+  }
+}
+
+/* ============ workouts view ============ */
+function renderWorkouts(){
+  renderRoutes();
+  const list = $("#wo-list"); list.innerHTML = "";
+  for(const w of allWorkouts()){
+    const el = document.createElement("div"); el.className = "item";
+    const tss = w.test ? 0 : Math.round(estimateTss(w));
+    el.innerHTML = `<div><h3></h3><p></p></div><div class="acts"><button class="btn small primary" data-pick>Odaberi</button>${w.imported ? '<button class="btn small danger" data-del>Ukloni</button>' : ""}</div><canvas></canvas>`;
+    el.querySelector("h3").textContent = w.name;
+    el.querySelector("p").textContent = `${w.test ? "Do otkaza, obično 20–30 min" : fmtTime(totalDur(w)) + " · ~" + tss + " TSS"}${w.desc ? " · " + w.desc : ""}`;
+    el.querySelector("[data-pick]").onclick = () => setWorkout(w);
+    el.querySelector("[data-del]")?.addEventListener("click", () => { store.set("workouts", store.get("workouts", []).filter(x => x.id !== w.id)); renderWorkouts(); });
+    list.append(el);
+    requestAnimationFrame(() => { const cv = el.querySelector("canvas"); const [g, W, H] = sizeCanvas(cv);
+      const maxF = Math.max(1.3, ...w.segs.map(s => Math.max(toWatts(w, s.lo), toWatts(w, s.hi)) / settings.ftp)) * 1.05; drawWorkoutBlocks(g, w, W, H, maxF, 1); });
+  }
+}
+function estimateTss(w){
+  const fakes = []; let t = 0;
+  for(const s of w.segs) for(let i = 0; i < s.d; i++){ t++; fakes.push([t, s.free ? .55 * settings.ftp : toWatts(w, segFrac(w, s, i / s.d)), 0, 0, 0, 0]); }
+  return metrics(fakes, settings.ftp)?.tss || 0;
+}
+
+/* ============ history view ============ */
+async function renderHistory(){
+  let rides = []; try{ rides = await dbAll(); }catch(e){ console.warn(e); }
+  rides.sort((a, b) => b.start - a.start);
+  const now = Date.now(), wk = rides.filter(r => now - r.start < 7 * 864e5);
+  $("#weekbar").innerHTML = `<div><small>Zadnjih 7 dana</small><b>${wk.length}</b> vožnji</div><div><small>Vrijeme</small><b>${fmtTime(wk.reduce((a,r)=>a+r.m.duration,0))}</b></div><div><small>TSS</small><b>${wk.reduce((a,r)=>a+r.m.tss,0)}</b></div><div><small>FTP</small><b>${settings.ftp}</b> W</div>`;
+  const list = $("#ride-list"); list.innerHTML = "";
+  if(!rides.length){ list.innerHTML = `<div class="item"><div><h3>Još nema vožnji</h3><p>Odvozi prvi trening i spremi ga na kraju. Pojavit će se ovdje.</p></div></div>`; return; }
+  for(const r of rides){
+    const el = document.createElement("div"); el.className = "item"; const m = r.m;
+    el.innerHTML = `<div><h3></h3><div class="metrics"><span><b>${fmtTime(m.duration)}</b></span><span><b>${m.avgP}</b>W prosj.</span><span><b>${m.np}</b>NP</span><span><b>${m.tss}</b>TSS</span><span><b>${m.IF}</b>IF</span>${m.avgHr ? `<span><b>${m.avgHr}</b>bpm</span>` : ""}<span><b>${(m.distance/1000).toFixed(1)}</b>km</span></div>
+      <p>Najbolje: 5 s ${m.best.s5} W · 1 min ${m.best.m1} W · 5 min ${m.best.m5 || "–"} W · 20 min ${m.best.m20 || "–"} W</p></div>
+      <div class="acts"><button class="btn small" data-fit>.FIT</button><button class="btn small danger" data-del>Obriši</button></div><canvas></canvas>`;
+    el.querySelector("h3").textContent = `${r.name} · ${new Date(r.start).toLocaleDateString("hr-HR", { weekday: "short", day: "numeric", month: "numeric" })} ${new Date(r.start).toLocaleTimeString("hr-HR", { hour: "2-digit", minute: "2-digit" })}`;
+    el.querySelector("[data-fit]").onclick = () => downloadFit(r);
+    el.querySelector("[data-del]").onclick = async () => { if(confirm("Obrisati ovu vožnju?")){ await dbDel(r.id); renderHistory(); } };
+    list.append(el);
+    requestAnimationFrame(() => { const cv = el.querySelector("canvas"); const [g, W, H] = sizeCanvas(cv); const n = r.samples.length;
+      for(let i = 0; i < n; i += Math.max(1, Math.floor(n / W))){ const f = r.samples[i][1] / r.ftp; g.fillStyle = zoneColor(f); g.fillRect(i / n * W, H - Math.min(1, f / 1.6) * H, Math.max(1, W / n + .5), H); } });
+  }
+}
+function downloadFit(r){
+  const blob = new Blob([encodeFit(r)], { type: "application/vnd.ant.fit" });
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+  const d = new Date(r.start); a.download = `pedala-${d.toISOString().slice(0,16).replace(/[:T]/g, "-")}.fit`;
+  document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+
+/* ============ summary ============ */
+let pendingRide = null;
+function openSummary(){
+  S.running = false; yt("pauseVideo");
+  const m = metrics(S.samples, settings.ftp);
+  if(!m || m.duration < 10){ toast("Prekratka vožnja za spremanje"); resetRide(); return; }
+  pendingRide = { id: "r-" + S.startMs, start: S.startMs, name: S.workout ? S.workout.name : S.route ? S.route.name : "Slobodna vožnja", route: !!S.route, ftp: settings.ftp, samples: S.samples, m };
+  $("#sum-title").textContent = pendingRide.name;
+  $("#sum-sub").textContent = new Date(S.startMs).toLocaleString("hr-HR");
+  $("#sum-grid").innerHTML = [["Vrijeme", fmtTime(m.duration)], ["Prosjek", m.avgP + " W"], ["NP", m.np + " W"], ["TSS", m.tss], ["IF", m.IF], ["kJ", m.kj],
+    ["Najbolja min", m.best.m1 + " W"], ["Puls", m.avgHr ? m.avgHr + " bpm" : "–"], ["Udaljenost", (m.distance / 1000).toFixed(1) + " km"]]
+    .map(([k, v]) => `<div><small>${k}</small><b>${v}</b></div>`).join("");
+  const ftpBox = $("#sum-ftp"); ftpBox.innerHTML = "";
+  if(S.workout?.test === "ramp" && m.best.m1){
+    const est = Math.round(m.best.m1 * .75);
+    ftpBox.innerHTML = `<p>Procjena FTP-a iz ramp testa: <b style="color:var(--text)">${est} W</b> (trenutni ${settings.ftp} W). Ako ti na treninzima bude preteško, spusti ga 5%.</p><div class="dlg-acts" style="justify-content:flex-start;margin-bottom:14px"><button class="btn small primary" id="set-ftp">Postavi ${est} W</button><button class="btn small" id="set-ftp95">Postavi ${Math.round(est*.95)} W</button></div>`;
+    const setF = v => { settings.ftp = v; store.set("settings", settings); fillSettings(); toast("FTP postavljen na " + v + " W"); };
+    $("#set-ftp").onclick = () => setF(est); $("#set-ftp95").onclick = () => setF(Math.round(est * .95));
+  }
+  $("#sum-resume").hidden = !!(S.workout && !currentSeg()) || !!(S.route && S.dist >= S.route.len);
+  $("#dlg-summary").showModal();
+}
+function resetRide(){
+  S.started = false; S.running = false; S.samples = []; S.t = 0; S.woT = 0; S.dist = 0; S.v = 0; S.lastSeg = -1; S.bias = 1; pendingRide = null;
+  applyControl(); render();
+}
+$("#sum-save").onclick = async () => { try{ await dbPut(pendingRide); toast("Vožnja spremljena"); }catch(e){ toast("Spremanje nije uspjelo: " + e.message); return; }
+  const r = pendingRide; $("#dlg-summary").close(); resetRide(); if(confirm("Skinuti .FIT datoteku sada?")) downloadFit(r); };
+$("#sum-discard").onclick = () => { if(confirm("Odbaciti vožnju bez spremanja?")){ $("#dlg-summary").close(); resetRide(); } };
+$("#sum-resume").onclick = () => { $("#dlg-summary").close(); start(); };
+
+/* ============ settings ============ */
+function fillSettings(){ const f = $("#settings-form"); f.ftp.value = settings.ftp; f.weight.value = settings.weight; f.beep.checked = settings.beep; f.pauseVideo.checked = settings.pauseVideo; f.autoPause.checked = settings.autoPause; f.ytKey.value = settings.ytKey || ""; f.chainring.value = settings.chainring; f.cog.value = settings.cog; }
+$("#settings-form").addEventListener("input", e => { const f = e.currentTarget;
+  const ftp = +f.ftp.value, wt = +f.weight.value; if(ftp >= 80 && ftp <= 600) settings.ftp = ftp; if(wt >= 30 && wt <= 200) settings.weight = wt;
+  settings.beep = f.beep.checked; settings.pauseVideo = f.pauseVideo.checked; settings.autoPause = f.autoPause.checked; settings.ytKey = f.ytKey.value.trim();
+  const cr = +f.chainring.value, cg = +f.cog.value; if(cr >= 20 && cr <= 60) settings.chainring = cr; if(cg >= 10 && cg <= 30) settings.cog = cg;
+  store.set("settings", settings); });
+
+/* ============ navigation + wiring ============ */
+function showView(v){
+  document.querySelectorAll(".tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.view === v));
+  document.querySelectorAll(".view").forEach(el => el.classList.toggle("active", el.id === "view-" + v));
+  if(v === "workouts") renderWorkouts(); if(v === "history") renderHistory(); if(v === "settings") fillSettings(); if(v === "ride") render();
+}
+document.querySelectorAll(".tabs button").forEach(b => b.onclick = () => showView(b.dataset.view));
+
+$("#chip-trainer").onclick = () => { if(!S.trainer) $("#dlg-connect").showModal(); };
+document.querySelectorAll("[data-close]").forEach(b => b.onclick = () => b.closest("dialog").close());
+$("#c-ble").onclick = async () => {
+  $("#dlg-connect").close();
+  if(!navigator.bluetooth){ toast("Ovaj preglednik nema Web Bluetooth. Otvori u Chromeu preko https."); return; }
+  const t = new BleTrainer(onData, trainerStatus);
+  try{ await t.connect(); S.trainer = t; applyControl(); startClock(); }
+  catch(e){ setChip("#chip-trainer", "", "Spoji trenažer"); if(e.name !== "NotFoundError") toast("Spajanje nije uspjelo: " + e.message); }
+};
+$("#c-sim").onclick = async () => { $("#dlg-connect").close(); const t = new SimTrainer(onData, (c, txt) => setChip("#chip-trainer", c, txt)); await t.connect(); S.trainer = t; window.__sim = t; applyControl(); startClock(); };
+$("#chip-hr").onclick = async () => {
+  if(S.hrm) return; if(!navigator.bluetooth){ toast("Ovaj preglednik nema Web Bluetooth"); return; }
+  const h = new BleHR(v => S.live.hr = v, hrStatus);
+  try{ await h.connect(); S.hrm = h; }catch(e){ setChip("#chip-hr", "", "Puls"); if(e.name !== "NotFoundError") toast("Spajanje pulsmetra nije uspjelo"); }
+};
+
+/* ============ Zwift Click ============
+   Protocol as documented by QZ (qdomyos-zwift) and Torqa: write "RideOn" to the
+   sync RX characteristic, then button state arrives as notifications.
+   v1 Click: service 00000001-19ca…, frame 0x37, 5 bytes, byte2==0 → +, byte4==0 → −.
+   Click v2 / Ride: service 0xFC82, frame 0x23 = protobuf, field 1 = button bitmap, bit cleared while pressed. */
+const ZW = { v1: "00000001-19ca-4651-86e5-fa29dcdd09d1", ride: 0xfc82, async: "00000002-19ca-4651-86e5-fa29dcdd09d1",
+  rx: "00000003-19ca-4651-86e5-fa29dcdd09d1", tx: "00000004-19ca-4651-86e5-fa29dcdd09d1" };
+const RIDE_ON = [0x52, 0x69, 0x64, 0x65, 0x4f, 0x6e];
+const hex = b => [...b].map(x => x.toString(16).padStart(2, "0")).join(" ");
+function readVarint(b, i){ let v = 0, mul = 1; while(i < b.length){ const x = b[i++]; v += (x & 0x7f) * mul; if(!(x & 0x80)) return [v, i]; mul *= 128; } return [null, i]; }
+/* returns the set of pressed key ids, or null if the frame carries no button state */
+function clickKeys(b){
+  if(b[0] === 0x37 && b.length === 5){ const k = new Set(); if(b[2] === 0) k.add("p"); if(b[4] === 0) k.add("m"); return k; }
+  if(b[0] === 0x23){
+    let i = 1; while(i < b.length){ const [tag, j] = readVarint(b, i); if(tag == null) break; i = j; const wt = tag & 7, f = Math.floor(tag / 8);
+      if(wt === 0){ const [v, j2] = readVarint(b, i); if(v == null) break; i = j2;
+        if(f === 1){ const k = new Set(); for(let bit = 0; bit < 18; bit++) if(!(Math.floor(v / 2 ** bit) & 1)) k.add("b" + bit); return k; } }
+      else if(wt === 2){ const [len, j2] = readVarint(b, i); if(len == null) break; i = j2 + len; }
+      else break; }
+  }
+  return null;
+}
+const CLICK_DEFAULT = { p: 1, m: -1 };
+const CLICK_DEBOUNCE_MS = 250;   // one shift per press, even if the pod repeats or bounces
+let clickLog = [], calib = null;
+function logClick(dir, b){ clickLog.unshift(`${new Date().toLocaleTimeString("hr-HR")} ${dir} ${hex(b)}`); clickLog = clickLog.slice(0, 30); const el = $("#click-log"); if(el) el.textContent = clickLog.join("\n"); }
+function onClickKey(key){
+  if(calib){
+    if(calib.step === 1){ calib.plus = key; calib.step = 2; $("#clk-step").textContent = "Sad pritisni tipku za lakšu brzinu (−)."; }
+    else if(key !== calib.plus){ settings.clickMap = { [calib.plus]: 1, [key]: -1 }; store.set("settings", settings); calib = null; $("#dlg-click").close(); toast("Tipke na Clicku postavljene"); }
+    return;
+  }
+  const map = Object.keys(settings.clickMap || {}).length ? settings.clickMap : CLICK_DEFAULT;
+  const d = map[key] ?? (key === "p" ? 1 : key === "m" ? -1 : 0);
+  if(!d){ if(!onClickKey.warned){ onClickKey.warned = true; toast("Nepoznata tipka na Clicku. Postavi tipke u Postavkama."); } return; }
+  if(document.querySelector("dialog[open]")) return;
+  const now = performance.now(); if(now - (onClickKey.last || 0) < CLICK_DEBOUNCE_MS) return; onClickKey.last = now;
+  bump(d);
+}
+function startCalibration(){ calib = { step: 1 }; $("#clk-step").textContent = "Pritisni tipku za težu brzinu (+)."; $("#dlg-click").showModal(); }
+$("#dlg-click").addEventListener("close", () => { calib = null; });
+
+class ZwiftClick {
+  constructor(onStatus){ this.onStatus = onStatus; this.down = new Set(); }
+  async connect(){ await this.attach(await navigator.bluetooth.requestDevice({ filters: [{ namePrefix: "Zwift" }], optionalServices: [ZW.v1, ZW.ride, "battery_service"] })); rememberDevice("clicks", this.device); }
+  attach(dev){ this.device = dev; dev.addEventListener("gattserverdisconnected", () => this.reconnect()); return this.setup(); }
+  async setup(){
+    this.onStatus("wait", "Spajam Click…");
+    const srv = await this.device.gatt.connect();
+    let svc; try{ svc = await srv.getPrimaryService(ZW.ride); this.kind = "ride"; }catch{ svc = await srv.getPrimaryService(ZW.v1); this.kind = "v1"; }
+    this.rx = await svc.getCharacteristic(ZW.rx);
+    for(const u of [ZW.async, ZW.tx]){
+      try{ const c = await svc.getCharacteristic(u); await c.startNotifications();
+        c.oncharacteristicvaluechanged = e => { const v = e.target.value; this.frame(new Uint8Array(v.buffer, v.byteOffset, v.byteLength), u === ZW.tx); }; }
+      catch(e){ console.warn("Click char", u, e); }
+    }
+    this.answered = false;
+    await this.send(RIDE_ON);
+    clearInterval(this.ka);
+    if(this.kind === "ride") this.ka = setInterval(() => this.send(RIDE_ON).catch(() => {}), 3000);   // pods sleep without traffic
+    setTimeout(() => { if(!this.answered && this.device.gatt.connected) toast("Click ne odgovara. Ažuriraj mu firmware preko Zwift Companiona."); }, 5000);
+    this.onStatus("on", "Click");
+  }
+  async send(bytes){ const d = new Uint8Array(bytes);
+    try{ await this.rx.writeValueWithoutResponse(d); }catch{ await this.rx.writeValueWithResponse(d); } }
+  frame(b, isTx){
+    this.answered = true;
+    logClick(isTx ? "tx" : "as", b);
+    if(isTx){
+      if(b[0] === 0x52 && b[1] === 0x69 && this.kind === "ride" && !this.unlockSent){ this.unlockSent = true; this.send([0xff, 0x04, 0x00]).catch(() => {}); }
+      if(b[0] === 0xff && b[1] === 0x03) toast("Ovaj dio Clicka je zaključan. Spoji ga jednom na Zwift pa probaj ponovno.");
+      return;
+    }
+    const keys = clickKeys(b); if(!keys) return;
+    for(const k of keys) if(!this.down.has(k)) onClickKey(k);     // act on press, not release
+    this.down = keys;
+  }
+  async reconnect(){
+    if(this.closing) return; clearInterval(this.ka); this.unlockSent = false;
+    this.onStatus("wait", "Click spava…");
+    for(let i = 0; i < 200; i++){            // Click sleeps when idle; a button press wakes it up
+      try{ await new Promise(r => setTimeout(r, 3000)); await this.setup(); return; }catch{}
+    }
+    this.onStatus("off", "Click");
+  }
+}
+S.clicks = [];
+const clickStatus = (c, txt) => setChip("#chip-click", c, S.clicks.length > 1 && c === "on" ? `Click ×${S.clicks.length}` : txt);
+const trainerStatus = (c, txt) => setChip("#chip-trainer", c, txt);
+const hrStatus = (c, txt) => setChip("#chip-hr", c, txt);
+function rememberDevice(role, dev){
+  const k = store.get("devices", {});
+  if(role === "clicks"){ k.clicks = [...new Set([...(k.clicks || []), dev.id])].slice(-4); } else k[role] = dev.id;
+  store.set("devices", k);
+}
+/* Reconnect devices this site was allowed to use before. Needs navigator.bluetooth.getDevices(),
+   which Chrome only exposes with persistent Bluetooth permissions. */
+async function autoConnect(){
+  const note = $("#bt-auto-note");
+  if(!navigator.bluetooth?.getDevices){ if(note) note.hidden = false; return; }
+  let devs = []; try{ devs = await navigator.bluetooth.getDevices(); }catch{ return; }
+  const k = store.get("devices", {}), clicks = k.clicks || [];
+  for(const dev of devs){
+    if(dev.id === k.trainer) waitFor(new BleTrainer(onData, trainerStatus), dev, () => !!S.trainer, t => { S.trainer = t; applyControl(); startClock(); toast("Trenažer spojen"); });
+    else if(dev.id === k.hr) waitFor(new BleHR(v => S.live.hr = v, hrStatus), dev, () => !!S.hrm, h => { S.hrm = h; });
+    else if(clicks.includes(dev.id)) waitFor(new ZwiftClick(clickStatus), dev, () => S.clicks.some(z => z.device.id === dev.id), z => { S.clicks.push(z); clickStatus("on", "Click"); });
+  }
+}
+/* keep trying while the device is off or asleep, stop if it got connected by hand */
+async function waitFor(obj, dev, already, onOk){
+  for(let i = 0; i < 400 && !already(); i++){
+    try{ obj.device = dev; await obj.setup(); dev.addEventListener("gattserverdisconnected", () => obj.reconnect()); onOk(obj); return; }catch{}
+    await new Promise(r => setTimeout(r, 3000));
+  }
+}
+$("#chip-click").onclick = async () => {
+  if(!navigator.bluetooth){ toast("Ovaj preglednik nema Web Bluetooth"); return; }
+  const status = clickStatus;
+  const z = new ZwiftClick(status);
+  try{ await z.connect(); S.clicks.push(z); status("on", "Click");
+    if(z.kind === "ride" && !Object.keys(settings.clickMap || {}).length) startCalibration(); }
+  catch(e){ if(!S.clicks.length) setChip("#chip-click", "", "Click"); if(e.name !== "NotFoundError") toast("Spajanje Clicka nije uspjelo: " + e.message); }
+};
+$("#btn-click-cal").onclick = () => startCalibration();
+
+$("#btn-start").onclick = () => { if(!S.started || !S.running) { S.started && S.autoPaused ? resume() : start(); } else pause(false); render(); };
+$("#btn-end").onclick = () => { pause(false); openSummary(); };
+const bump = d => { const c = currentSeg(); if(!S.workout || c?.s.free){ S.gear = clamp(S.gear + d, 1, GEARS.length); } else { S.bias = clamp(Math.round((S.bias + d * .05) * 100) / 100, .5, 1.5); } applyControl(); render(); };
+$("#bias-dn").onclick = () => bump(-1); $("#bias-up").onclick = () => bump(1);
+$("#gear-dn").onclick = () => bump(-1); $("#gear-up").onclick = () => bump(1);
+document.addEventListener("keydown", e => {
+  if(e.target.matches("input,textarea,select") || document.querySelector("dialog[open]")) return;
+  if(e.code === "Space"){ e.preventDefault(); $("#btn-start").click(); }
+  if(e.code === "ArrowUp"){ e.preventDefault(); bump(1); } if(e.code === "ArrowDown"){ e.preventDefault(); bump(-1); }
+});
+$("#vid-form").onsubmit = e => { e.preventDefault(); const q = $("#vid-url").value.trim(); if(!q) return;
+  const id = /^https?:|youtu/.test(q) ? ytId(q) : null; if(id){ $("#vid-url").value = ""; return playLink(id); } if(/^https?:/.test(q)) return toast("To ne izgleda kao YouTube link"); searchVideos(q); };
+VID_CHIPS.forEach(c => { const b = document.createElement("button"); b.type = "button"; b.textContent = c; b.onclick = () => { $("#vid-url").value = c; searchVideos(c + " cycling", c); }; $("#vid-chips").append(b); });
+$("#btn-vid-change").onclick = () => showPicker();
+$("#btn-vid-back").onclick = () => hidePicker();
+$("#btn-fs").onclick = () => { const el = document.documentElement; document.fullscreenElement ? document.exitFullscreen() : el.requestFullscreen?.().catch(()=>{}); };
+$("#btn-freeride").onclick = () => setWorkout(null);
+$("#zwo-file").onchange = async e => {
+  const saved = store.get("workouts", []); let ok = 0;
+  for(const f of e.target.files){ try{ saved.push(parseZwo(await f.text(), f.name)); ok++; }catch(err){ toast(`${f.name}: ${err.message}`); } }
+  store.set("workouts", saved); e.target.value = ""; if(ok) toast(`Uvezeno treninga: ${ok}`); renderWorkouts();
+};
+$("#gpx-file").onchange = async e => {
+  let saved = routes(), ok = 0;
+  for(const f of e.target.files){ try{ saved.push(parseGpx(await f.text(), f.name)); ok++; }catch(err){ toast(`${f.name}: ${err.message}`); } }
+  if(!store.set("routes", saved)){ toast("Nema mjesta za još ruta. Ukloni neku staru pa probaj ponovno."); ok = 0; }
+  e.target.value = ""; if(ok) toast(`Uvezeno ruta: ${ok}`); renderRoutes();
+};
+window.addEventListener("resize", () => drawProfile());
+window.addEventListener("beforeunload", e => { if(S.started){ e.preventDefault(); e.returnValue = ""; } });
+
+/* init */
+(() => {
+  const lw = store.get("lastWorkout", null); const w = allWorkouts().find(x => x.id === lw); if(w){ S.workout = w; $("#wo-name").textContent = w.name; $("#wo-meta").textContent = w.test ? "" : `· ${fmtTime(totalDur(w))}`; }
+  const lr = store.get("lastRoute", null); const rt = routes().find(x => x.id === lr);
+  if(rt && !S.workout){ S.route = rt; $("#wo-name").textContent = rt.name; $("#wo-meta").textContent = `· ${(rt.len / 1000).toFixed(1)} km · ↑${rt.gain} m`; }
+  const v = store.get("video", null); v ? setVideo(v) : showPicker();
+  fillSettings(); render();
+  autoConnect();
+})();
+window.__pedala = { S, parseZwo, parseGpx, setRoute, routes, gradeAt, trainerGrade, clickKeys, onClickKey, encodeFit, metrics, allWorkouts, setWorkout, GEARS };
+</script>
+</body>
+</html>
