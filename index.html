@@ -87,6 +87,7 @@ button{cursor:pointer}
 .btn:disabled{opacity:.4;cursor:not-allowed}
 .btn.danger{color:var(--z6)}
 .btn.small{padding:7px 12px;border-radius:10px;font-size:14px}
+a.btn{display:inline-block;color:inherit;text-decoration:none}
 
 .profile-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:6px;font-size:14px;color:var(--muted)}
 .profile-head strong{color:var(--text);font-weight:600}
@@ -117,6 +118,28 @@ button{cursor:pointer}
 .field input{flex:1;min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
 .vid-tools{position:absolute;right:10px;top:10px;display:flex;gap:6px;z-index:2}
 .vid-tools .btn{background:rgba(21,27,38,.78);backdrop-filter:blur(6px)}
+/* metrics over the video in fullscreen */
+.ovl{display:none;position:absolute;left:0;right:0;bottom:0;z-index:2;pointer-events:none;align-items:flex-end;flex-wrap:wrap;gap:10px;padding:48px 18px max(16px,env(safe-area-inset-bottom));background:linear-gradient(transparent,rgba(8,11,17,.85) 60%)}
+.stage:fullscreen{background:#000}
+.stage:fullscreen .ovl{display:flex}
+.stage:fullscreen #btn-vid-change{display:none}
+.ovl>div{background:rgba(21,27,38,.72);border-radius:12px;padding:6px 14px 8px}
+.ovl small{display:block;color:var(--muted);font-size:14px;font-weight:500}
+.ovl b{font:700 46px/1 var(--num);font-variant-numeric:tabular-nums}
+.ovl i{font:600 18px/1 var(--num);font-style:normal;color:var(--muted);margin-left:4px}
+.ovl .o-pw{border-left:6px solid var(--zone);transition:border-color .6s}
+.ovl .o-pw b{font-size:92px;line-height:.95}
+.ovl .o-pw i{font-size:28px}
+.ovl .o-tgt{display:block;font:700 30px/1.1 var(--num);color:var(--zone);transition:color .6s}
+.ovl .o-iv small:last-child{margin-top:2px}
+.o-paused{position:absolute;left:50%;top:40%;transform:translate(-50%,-50%);z-index:2;pointer-events:none;background:rgba(21,27,38,.82);border-radius:14px;padding:10px 22px;font:700 40px/1 var(--num);display:none}
+.stage:fullscreen .o-paused:not([hidden]){display:block}
+@media (max-width: 900px), (max-height: 520px){
+  .ovl{flex-wrap:nowrap;gap:6px;padding:30px 10px max(10px,env(safe-area-inset-bottom))}
+  .ovl>div{padding:4px 10px 6px} .ovl small{font-size:12px} .ovl i{font-size:14px}
+  .ovl b{font-size:28px} .ovl .o-pw b{font-size:52px} .ovl .o-pw i{font-size:20px} .ovl .o-tgt{font-size:18px}
+  .ovl #o-iv-next{display:none}
+}
 
 /* lists */
 h1{font:700 40px/1.05 var(--num);margin:4px 0 4px}
@@ -140,6 +163,16 @@ h1{font:700 40px/1.05 var(--num);margin:4px 0 4px}
 .check{flex-direction:row!important;align-items:center;gap:10px!important;color:var(--text)!important}
 .check input{width:20px;height:20px}
 .note{color:var(--muted);font-size:14px;max-width:62ch}
+.chart{display:block;width:100%;height:190px;background:var(--panel);border-radius:14px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:var(--muted);margin:0 0 8px}
+.legend i{display:inline-block;width:12px;height:3px;border-radius:2px;margin-right:6px;vertical-align:middle}
+.weekbar .up{color:var(--z3)} .weekbar .down{color:var(--z6)}
+.weekbar div span{font-size:13px;margin-left:4px}
+.best{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.best div{background:var(--panel);border-radius:12px;padding:8px 12px}
+.best small{display:block;color:var(--muted);font-size:13px}
+.best b{font:700 28px/1.05 var(--num)}
+.best p{margin:2px 0 0;color:var(--muted);font-size:13px}
 
 /* dialogs */
 dialog{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:18px;padding:20px;max-width:min(460px,92vw);width:100%}
@@ -180,6 +213,7 @@ dialog p{color:var(--muted);margin:0 0 14px}
   .vgrid{grid-template-columns:repeat(2,1fr);gap:10px}
 }
 @media (max-width: 520px){
+  .best{grid-template-columns:1fr 1fr}
   .top{gap:8px}
   .tabs{order:3;flex:1 1 100%;justify-content:space-between}
   .tabs button{flex:1}
@@ -205,6 +239,7 @@ dialog p{color:var(--muted);margin:0 0 14px}
       <button role="tab" data-view="ride" aria-selected="true">Vožnja</button>
       <button role="tab" data-view="workouts" aria-selected="false">Treninzi</button>
       <button role="tab" data-view="history" aria-selected="false">Povijest</button>
+      <button role="tab" data-view="progress" aria-selected="false">Napredak</button>
       <button role="tab" data-view="settings" aria-selected="false">Postavke</button>
     </nav>
     <div class="spacer"></div>
@@ -250,6 +285,15 @@ dialog p{color:var(--muted);margin:0 0 14px}
     </section>
 
     <section class="stage" id="stage">
+      <div class="ovl" id="ovl" aria-hidden="true">
+        <div class="o-pw"><b id="o-pw">0</b><i>W</i><span class="o-tgt" id="o-tgt"></span></div>
+        <div class="o-iv" id="o-iv-box"><small id="o-iv-lbl"></small><b id="o-iv">0:00</b><small id="o-iv-next"></small></div>
+        <div><small>Kadenca</small><b id="o-cad">–</b><i>rpm</i></div>
+        <div><small>Puls</small><b id="o-hr">–</b><i>bpm</i></div>
+        <div><small>Vrijeme</small><b id="o-time">0:00</b></div>
+        <div><small id="o-x-lbl">Brzina</small><b id="o-x">0.0</b><i id="o-x-unit">km/h</i></div>
+      </div>
+      <div class="o-paused" id="o-paused" hidden>Pauza</div>
       <div class="vid-tools" id="vid-tools" hidden>
         <button class="btn small" id="btn-vid-change">Promijeni video</button>
         <button class="btn small" id="btn-fs">Cijeli zaslon</button>
@@ -304,9 +348,40 @@ dialog p{color:var(--muted);margin:0 0 14px}
   <main class="view" id="view-history">
     <div class="scroll"><div class="wrap">
       <h1>Povijest</h1>
-      <p class="lead">Vožnje se spremaju u ovaj preglednik. Svaku možeš skinuti kao .FIT za Stravu, intervals.icu ili GoldenCheetah.</p>
+      <p class="lead">Vožnje se spremaju samo u ovaj preglednik. Svaku možeš skinuti kao .FIT za Stravu, intervals.icu ili GoldenCheetah, a sve odjednom kao sigurnosnu kopiju.</p>
+      <div class="dlg-acts" style="justify-content:flex-start;margin-bottom:14px">
+        <button class="btn small" id="btn-backup">Izvezi sigurnosnu kopiju</button>
+        <label class="btn small" for="backup-file" style="display:inline-block">Uvezi kopiju</label>
+        <input id="backup-file" type="file" accept=".json,application/json" hidden>
+      </div>
       <div class="weekbar" id="weekbar"></div>
       <div class="list" id="ride-list"></div>
+    </div></div>
+  </main>
+
+  <!-- PROGRESS -->
+  <main class="view" id="view-progress">
+    <div class="scroll"><div class="wrap">
+      <h1>Napredak</h1>
+      <p class="lead">Računa se iz vožnji spremljenih u ovom pregledniku.</p>
+      <div id="pg-empty" class="list" hidden><div class="item"><div><h3>Još nema vožnji</h3><p>Spremi nekoliko vožnji i ovdje ćeš vidjeti formu, volumen i najbolje snage.</p></div></div></div>
+      <div id="pg-body">
+        <div class="weekbar" id="pg-totals"></div>
+        <h2 class="section-title">Forma</h2>
+        <p class="note">Kondicija (CTL) je prosjek dnevnog TSS-a kroz 42 dana, umor (ATL) kroz 7 dana, a forma (TSB) je kondicija minus umor. Kad je forma jako negativna, treba odmor.</p>
+        <div class="legend"><span><i style="background:var(--z2)"></i>Kondicija</span><span><i style="background:var(--z6)"></i>Umor</span><span><i style="background:var(--z4)"></i>Forma</span><span><i style="background:var(--faint)"></i>Dnevni TSS</span></div>
+        <canvas class="chart" id="pg-pmc" aria-label="Graf forme"></canvas>
+        <h2 class="section-title">Tjedni volumen</h2>
+        <p class="note">Sati vožnje po tjednu za zadnjih 12 tjedana, s TSS-om iznad stupca.</p>
+        <canvas class="chart" id="pg-weeks" aria-label="Tjedni volumen"></canvas>
+        <h2 class="section-title">Najbolje snage</h2>
+        <p class="note">Najveća prosječna snaga kroz zadano trajanje, ikad i u zadnjih 6 tjedana.</p>
+        <div class="best" id="pg-best"></div>
+        <h2 class="section-title">FTP</h2>
+        <div class="legend"><span><i style="background:var(--text)"></i>FTP u postavkama</span><span><i style="background:var(--z3)"></i>Najboljih 20 min × 0.95</span></div>
+        <canvas class="chart" id="pg-ftp" aria-label="Kretanje FTP-a"></canvas>
+        <p class="note" style="margin-top:8px">Točka vrijedi kao procjena samo ako je tih 20 minuta bio maksimalan napor.</p>
+      </div>
     </div></div>
   </main>
 
@@ -320,12 +395,17 @@ dialog p{color:var(--muted);margin:0 0 14px}
         <label>Težina (kg)<input name="weight" type="number" min="30" max="200" step="0.5"></label>
         <label>Prednji lančanik (zubi)<input name="chainring" type="number" min="20" max="60" step="1"></label>
         <label>Zwift Cog (zubi)<input name="cog" type="number" min="10" max="30" step="1"></label>
-        <label class="full">YouTube API ključ (za pretragu videa)<input name="ytKey" type="text" autocomplete="off" spellcheck="false" placeholder="AIza…"></label>
+        <label class="full">YouTube API ključ (samo ako nije postavljen na Vercelu)<input name="ytKey" type="text" autocomplete="off" spellcheck="false" placeholder="AIza…"></label>
         <p class="full note" style="margin:-4px 0 4px">Besplatan je: na console.cloud.google.com napravi projekt, uključi <b>YouTube Data API v3</b> i pod Credentials stvori API key. Dnevna kvota je dovoljna za oko 100 pretraga. Bez ključa i dalje možeš zalijepiti link.</p>
         <label class="full check"><input name="beep" type="checkbox"> Zvučni signal na promjeni intervala</label>
         <label class="full check"><input name="pauseVideo" type="checkbox"> Pauziraj video kad pauziram trening</label>
         <label class="full check"><input name="autoPause" type="checkbox"> Automatska pauza kad prestanem pedalirati</label>
       </form>
+      <h2 class="section-title">intervals.icu</h2>
+      <p class="note">Besplatan servis za analizu treninga. Na intervals.icu otvori <b>Settings → Developer Settings</b>, stvori <b>API key</b> i zalijepi ga ovdje.</p>
+      <div class="field" style="max-width:520px;margin:10px 0"><input id="icu-key" type="text" autocomplete="off" spellcheck="false" placeholder="API ključ" aria-label="intervals.icu API ključ"><button class="btn small" id="btn-icu" type="button">Spremi i provjeri</button></div>
+      <p class="note" id="icu-status"></p>
+      <label class="check note" style="display:flex"><input type="checkbox" id="icu-auto"> Automatski pošalji svaku spremljenu vožnju na intervals.icu</label>
       <h2 class="section-title">Brzine</h2>
       <p class="note">24 virtualne brzine s istim omjerima kao u Zwiftu (0.75 do 5.49). Otpor se računa iz nagiba, brzine i omjera virtualne brzine prema stvarnom omjeru lančanik/Cog, pa zato upiši koliko zubi imaju tvoj prednji lančanik i Cog.</p>
       <h2 class="section-title">Automatsko spajanje</h2>
@@ -762,7 +842,7 @@ function setVideo(id){
   const st = $("#stage"); st.querySelector("iframe")?.remove();
   if(!id){ showPicker(); return; }
   const f = document.createElement("iframe");
-  f.src = `https://www.youtube.com/embed/${id}?enablejsapi=1&playsinline=1&rel=0&modestbranding=1${S.running ? "&autoplay=1" : ""}`;
+  f.src = `https://www.youtube.com/embed/${id}?enablejsapi=1&playsinline=1&rel=0&modestbranding=1&fs=0${S.running ? "&autoplay=1" : ""}`;
   f.allow = "autoplay; encrypted-media; picture-in-picture; fullscreen"; f.title = "YouTube video";
   st.prepend(f); hidePicker(); store.set("video", id);
 }
@@ -798,32 +878,40 @@ function renderRecent(){
   $("#vid-recent-title").hidden = !r.length; r.forEach(v => box.append(vidCard(v)));
 }
 function vidMsg(html){ const m = $("#vid-msg"); m.hidden = !html; m.innerHTML = html || ""; }
+/* search through api/youtube.js with YOUTUBE_API_KEY from Vercel; without it, straight to Google with the key from Settings */
+async function ytSearch(q, long){
+  let r = null, j = {};
+  try{ const u = new URL("/api/youtube", location.href); u.searchParams.set("q", q); if(long) u.searchParams.set("long", "1");
+    r = await fetch(u); j = await r.json().catch(() => ({})); }catch{}     // offline, or opened without Vercel
+  if(r?.ok) return j.items;
+  if(r && r.status !== 501 && r.status !== 404) throw new Error(j.error || String(r.status));
+  const key = settings.ytKey; if(!key) throw new Error(r ? "noKey" : "Failed to fetch");
+  const u = new URL("https://www.googleapis.com/youtube/v3/search");
+  Object.entries({ part: "snippet", type: "video", maxResults: 24, videoEmbeddable: "true", q, key }).forEach(([k, v]) => u.searchParams.set(k, v));
+  if(long) u.searchParams.set("videoDuration", "long");
+  const res = await fetch(u), data = await res.json();
+  if(!res.ok) throw new Error(data.error?.errors?.[0]?.reason || data.error?.message || res.status);
+  const items = (data.items || []).filter(i => i.id?.videoId), durs = {};
+  if(items.length){
+    const v = new URL("https://www.googleapis.com/youtube/v3/videos");
+    v.searchParams.set("part", "contentDetails"); v.searchParams.set("id", items.map(i => i.id.videoId).join(",")); v.searchParams.set("key", key);
+    try{ const jr = await (await fetch(v)).json(); (jr.items || []).forEach(x => durs[x.id] = isoDur(x.contentDetails?.duration)); }catch{}
+  }
+  return items.map(i => ({ id: i.id.videoId, title: i.snippet.title, channel: i.snippet.channelTitle, thumb: i.snippet.thumbnails?.medium?.url, dur: durs[i.id.videoId] || 0 }));
+}
 async function searchVideos(q, label){
-  const key = settings.ytKey;
-  if(!key){ vidMsg('Za pretragu treba besplatni YouTube API ključ. Upiši ga u <b>Postavke</b>, tamo su i upute. Do tada možeš zalijepiti link videa.'); return; }
   vidMsg("Tražim…"); $("#vid-results").innerHTML = ""; $("#vid-res-title").hidden = true;
   try{
-    const u = new URL("https://www.googleapis.com/youtube/v3/search");
-    Object.entries({ part: "snippet", type: "video", maxResults: 24, videoEmbeddable: "true", q, key }).forEach(([k, v]) => u.searchParams.set(k, v));
-    if($("#vid-long").checked) u.searchParams.set("videoDuration", "long");
-    const r = await fetch(u); const j = await r.json();
-    if(!r.ok) throw new Error(j.error?.errors?.[0]?.reason || j.error?.message || r.status);
-    const items = (j.items || []).filter(i => i.id?.videoId);
-    const durs = {};
-    if(items.length){
-      const v = new URL("https://www.googleapis.com/youtube/v3/videos");
-      v.searchParams.set("part", "contentDetails"); v.searchParams.set("id", items.map(i => i.id.videoId).join(",")); v.searchParams.set("key", key);
-      try{ const jr = await (await fetch(v)).json(); (jr.items || []).forEach(x => durs[x.id] = isoDur(x.contentDetails?.duration)); }catch{}
-    }
-    const list = items.map(i => ({ id: i.id.videoId, title: unesc(i.snippet.title), channel: unesc(i.snippet.channelTitle),
-      thumb: i.snippet.thumbnails?.medium?.url, dur: durs[i.id.videoId] || 0 }));
+    const list = (await ytSearch(q, $("#vid-long").checked)).map(v => ({ ...v, title: unesc(v.title), channel: unesc(v.channel) }));
     vidMsg(list.length ? "" : "Ništa nije pronađeno. Probaj drugi pojam ili isključi filter dugih videa.");
     $("#vid-res-title").hidden = !list.length; $("#vid-res-title").textContent = `Rezultati za „${label || q}”`;
     list.forEach(v => $("#vid-results").append(vidCard(v)));
   }catch(e){
     const why = String(e.message);
-    vidMsg(why.includes("quota") ? "Dnevna kvota pretraga je potrošena. Resetira se oko 9 ujutro po našem vremenu, a do tada možeš zalijepiti link."
-      : why.includes("keyInvalid") || why.includes("API key") ? "YouTube ne prihvaća API ključ. Provjeri ga u <b>Postavkama</b> i je li uključen YouTube Data API v3."
+    vidMsg(why === "noKey" ? "Za pretragu treba besplatni YouTube API ključ. Dodaj ga na Vercelu kao <b>YOUTUBE_API_KEY</b> ili ga upiši u <b>Postavke</b>. Do tada možeš zalijepiti link videa."
+      : why.includes("quota") ? "Dnevna kvota pretraga je potrošena. Resetira se oko 9 ujutro po našem vremenu, a do tada možeš zalijepiti link."
+      : /referer|referrer/i.test(why) ? "Google odbija ključ zbog ograničenja na web stranice. U Google Cloud Consoleu za ovaj ključ postavi <b>Application restrictions: None</b>, a API restrictions ostavi na YouTube Data API v3."
+      : why.includes("keyInvalid") || why.includes("API key") ? "YouTube ne prihvaća API ključ. Provjeri ga i je li uključen YouTube Data API v3."
       : why.includes("Failed to fetch") ? "Nema veze s YouTubeom. Provjeri internet."
       : "Pretraga nije uspjela: " + why.replace(/[<>]/g, ""));
   }
@@ -905,6 +993,23 @@ function render(){
   sb.classList.toggle("primary", !S.running);
   $("#btn-end").disabled = !S.started;
   drawProfile();
+  renderOverlay(p, tgt, rg);
+}
+
+function renderOverlay(p, tgt, rg){
+  if(document.fullscreenElement !== $("#stage")) return;
+  const o = (id, v) => { const el = $(id); v = String(v); if(el.textContent !== v) el.textContent = v; };
+  o("#o-pw", p);
+  o("#o-tgt", tgt != null ? `cilj ${tgt} W` : rg != null ? `nagib ${rg.toFixed(1)} %` : "");
+  $("#o-tgt").style.color = tgt == null && rg != null ? gradeColor(rg) : "";
+  $("#o-iv-box").hidden = $("#interval-box").hidden;
+  o("#o-iv-lbl", $("#iv-lbl").textContent); o("#o-iv", $("#iv-cd").textContent); o("#o-iv-next", $("#iv-next").textContent);
+  o("#o-cad", S.live.cadence ? Math.round(S.live.cadence) : "–");
+  o("#o-hr", S.live.hr || "–");
+  o("#o-time", fmtTime(S.t));
+  o("#o-x-lbl", S.route ? "Udaljenost" : "Brzina");
+  o("#o-x", S.route ? (S.dist / 1000).toFixed(1) : (S.live.speed || 0).toFixed(1)); o("#o-x-unit", S.route ? "km" : "km/h");
+  $("#o-paused").hidden = !(S.started && !S.running);
 }
 
 function sizeCanvas(cv){ const r = cv.getBoundingClientRect(), d = devicePixelRatio || 1;
@@ -1039,9 +1144,10 @@ async function renderHistory(){
     const el = document.createElement("div"); el.className = "item"; const m = r.m;
     el.innerHTML = `<div><h3></h3><div class="metrics"><span><b>${fmtTime(m.duration)}</b></span><span><b>${m.avgP}</b>W prosj.</span><span><b>${m.np}</b>NP</span><span><b>${m.tss}</b>TSS</span><span><b>${m.IF}</b>IF</span>${m.avgHr ? `<span><b>${m.avgHr}</b>bpm</span>` : ""}<span><b>${(m.distance/1000).toFixed(1)}</b>km</span></div>
       <p>Najbolje: 5 s ${m.best.s5} W · 1 min ${m.best.m1} W · 5 min ${m.best.m5 || "–"} W · 20 min ${m.best.m20 || "–"} W</p></div>
-      <div class="acts"><button class="btn small" data-fit>.FIT</button><button class="btn small danger" data-del>Obriši</button></div><canvas></canvas>`;
+      <div class="acts">${icuButton(r)}<button class="btn small" data-fit>.FIT</button><button class="btn small danger" data-del>Obriši</button></div><canvas></canvas>`;
     el.querySelector("h3").textContent = `${r.name} · ${new Date(r.start).toLocaleDateString("hr-HR", { weekday: "short", day: "numeric", month: "numeric" })} ${new Date(r.start).toLocaleTimeString("hr-HR", { hour: "2-digit", minute: "2-digit" })}`;
     el.querySelector("[data-fit]").onclick = () => downloadFit(r);
+    el.querySelector("[data-icu]")?.addEventListener("click", () => queueIcu(r));
     el.querySelector("[data-del]").onclick = async () => { if(confirm("Obrisati ovu vožnju?")){ await dbDel(r.id); renderHistory(); } };
     list.append(el);
     requestAnimationFrame(() => { const cv = el.querySelector("canvas"); const [g, W, H] = sizeCanvas(cv); const n = r.samples.length;
@@ -1054,6 +1160,190 @@ function downloadFit(r){
   const d = new Date(r.start); a.download = `pedala-${d.toISOString().slice(0,16).replace(/[:T]/g, "-")}.fit`;
   document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
 }
+
+/* ============ progress view ============ */
+const DAY = 864e5, BEST = [["s5", "5 s"], ["m1", "1 min"], ["m5", "5 min"], ["m20", "20 min"]];
+const dayStart = t => { const d = new Date(t); d.setHours(0, 0, 0, 0); return d.getTime(); };
+const addDays = (t, n) => { const d = new Date(t); d.setDate(d.getDate() + n); return d.getTime(); };
+const weekStart = t => { const d = new Date(dayStart(t)); return addDays(d.getTime(), -((d.getDay() + 6) % 7)); };
+const shortDate = t => { const d = new Date(t); return `${d.getDate()}.${d.getMonth() + 1}.`; };
+const niceStep = v => { const p = 10 ** Math.floor(Math.log10(v)), f = v / p; return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10) * p; };
+/* fitness (CTL), fatigue (ATL) and form (TSB) per day, exponentially weighted like TrainingPeaks */
+function pmc(rides){
+  const tss = {}; for(const r of rides){ const k = dayStart(r.start); tss[k] = (tss[k] || 0) + r.m.tss; }
+  const out = []; let ctl = 0, atl = 0;
+  for(let t = dayStart(Math.min(...rides.map(r => r.start))), end = dayStart(Date.now()); t <= end; t = addDays(t, 1)){
+    const x = tss[t] || 0, tsb = ctl - atl; ctl += (x - ctl) / 42; atl += (x - atl) / 7; out.push({ t, tss: x, ctl, atl, tsb });
+  }
+  return out;
+}
+/* axes + grid; returns helpers for plotting into the inner box */
+function chart(cv, min, max, fmt = v => Math.round(v)){
+  const [g, W, H] = sizeCanvas(cv); g.clearRect(0, 0, W, H);
+  const step = niceStep((max - min) / 4 || 1), lo = Math.floor(min / step) * step, hi = Math.max(lo + step, Math.ceil(max / step) * step);
+  const L = 40, R = 10, T = 12, B = 22, w = W - L - R, h = H - T - B, Y = v => T + (hi - v) / (hi - lo) * h;
+  g.font = "500 11px Barlow, system-ui"; g.textAlign = "right"; g.textBaseline = "middle"; g.lineWidth = 1;
+  for(let v = lo; v <= hi + step / 1e6; v += step){ const y = Math.round(Y(v)) + .5; g.strokeStyle = cssVar("--line"); g.beginPath(); g.moveTo(L, y); g.lineTo(L + w, y); g.stroke(); g.fillStyle = cssVar("--muted"); g.fillText(fmt(v), L - 7, y); }
+  const xLabel = (x, text) => { g.textAlign = "center"; g.textBaseline = "top"; g.fillStyle = cssVar("--muted"); g.fillText(text, x, T + h + 6); };
+  const line = (pts, color, width = 2) => { g.strokeStyle = color; g.lineWidth = width; g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.stroke(); };
+  return { g, L, T, w, h, Y, xLabel, line };
+}
+let progressRides = [];
+async function renderProgress(){
+  try{ progressRides = await dbAll(); }catch(e){ console.warn(e); progressRides = []; }
+  progressRides.sort((a, b) => a.start - b.start);
+  drawProgress();
+}
+function drawProgress(){
+  const rides = progressRides;
+  $("#pg-empty").hidden = !!rides.length; $("#pg-body").hidden = !rides.length;
+  if(!rides.length || !$("#view-progress").classList.contains("active")) return;
+  const now = Date.now();
+
+  // last 30 days vs the 30 before
+  const sumOf = (a, b) => { const rs = rides.filter(r => r.start >= now - b * DAY && r.start < now - a * DAY);
+    return { n: rs.length, time: rs.reduce((x, r) => x + r.m.duration, 0), km: rs.reduce((x, r) => x + r.m.distance, 0) / 1000, tss: rs.reduce((x, r) => x + r.m.tss, 0), kj: rs.reduce((x, r) => x + r.m.kj, 0) }; };
+  const cur = sumOf(0, 30), prev = sumOf(30, 60);
+  const delta = k => { if(!prev[k]) return ""; const d = Math.round((cur[k] - prev[k]) / prev[k] * 100); return d ? `<span class="${d > 0 ? "up" : "down"}">${d > 0 ? "+" : ""}${d}%</span>` : ""; };
+  $("#pg-totals").innerHTML = `<div><small>Zadnjih 30 dana</small><b>${cur.n}</b> vožnji${delta("n")}</div><div><small>Vrijeme</small><b>${fmtTime(cur.time)}</b>${delta("time")}</div>`
+    + `<div><small>Udaljenost</small><b>${cur.km.toFixed(0)}</b> km${delta("km")}</div><div><small>TSS</small><b>${cur.tss}</b>${delta("tss")}</div><div><small>Rad</small><b>${cur.kj}</b> kJ${delta("kj")}</div>`;
+
+  // fitness / fatigue / form, last 120 days
+  const days = pmc(rides).slice(-120), n = days.length;
+  const vals = days.flatMap(d => [d.ctl, d.atl, d.tsb]);
+  const c1 = chart($("#pg-pmc"), Math.min(0, ...vals), Math.max(10, ...vals, ...days.map(d => d.tss)));
+  const X1 = i => c1.L + (n > 1 ? i / (n - 1) : .5) * c1.w, bw = Math.max(1, c1.w / n - 1);
+  c1.g.fillStyle = cssVar("--faint"); c1.g.globalAlpha = .5;
+  days.forEach((d, i) => { if(d.tss) c1.g.fillRect(X1(i) - bw / 2, c1.Y(d.tss), bw, c1.Y(0) - c1.Y(d.tss)); }); c1.g.globalAlpha = 1;
+  [["tsb", "--z4"], ["atl", "--z6"], ["ctl", "--z2"]].forEach(([k, v]) => c1.line(days.map((d, i) => [X1(i), c1.Y(d[k])]), cssVar(v)));
+  days.forEach((d, i) => { if(new Date(d.t).getDate() === 1 || (n < 40 && i % 7 === 0)) c1.xLabel(X1(i), shortDate(d.t)); });
+  const last = days[n - 1];
+  c1.g.textAlign = "left"; c1.g.textBaseline = "top"; c1.g.fillStyle = cssVar("--text"); c1.g.font = "600 12px Barlow, system-ui";
+  c1.g.fillText(`Danas: kondicija ${Math.round(last.ctl)} · umor ${Math.round(last.atl)} · forma ${Math.round(last.tsb)}`, c1.L + 6, c1.T + 2);
+
+  // weekly volume, last 12 weeks
+  const w0 = weekStart(now), weeks = [];
+  for(let i = 11; i >= 0; i--){ const a = addDays(w0, -7 * i), b = addDays(a, 7), rs = rides.filter(r => r.start >= a && r.start < b);
+    weeks.push({ a, h: rs.reduce((x, r) => x + r.m.duration, 0) / 3600, tss: rs.reduce((x, r) => x + r.m.tss, 0) }); }
+  const c2 = chart($("#pg-weeks"), 0, Math.max(1, ...weeks.map(w => w.h)) * 1.15, v => +v.toFixed(1) + " h");
+  const slot = c2.w / weeks.length;
+  weeks.forEach((w, i) => { const x = c2.L + slot * i, y = c2.Y(w.h);
+    c2.g.fillStyle = cssVar(i === weeks.length - 1 ? "--z3" : "--z2"); c2.g.fillRect(x + slot * .18, y, slot * .64, c2.Y(0) - y);
+    if(w.tss){ c2.g.fillStyle = cssVar("--muted"); c2.g.textAlign = "center"; c2.g.textBaseline = "bottom"; c2.g.fillText(w.tss, x + slot / 2, y - 3); }
+    if(slot > 34 || i % 2 === weeks.length % 2) c2.xLabel(x + slot / 2, shortDate(w.a)); });
+
+  // best powers
+  const recent = rides.filter(r => r.start >= now - 42 * DAY);
+  const top = (rs, k) => rs.reduce((b, r) => (r.m.best?.[k] || 0) > (b?.m.best[k] || 0) ? r : b, null);
+  $("#pg-best").innerHTML = BEST.map(([k, lbl]) => { const a = top(rides, k), r = top(recent, k);
+    return `<div><small>${lbl}</small><b>${a ? a.m.best[k] : "–"}</b> W<p>${a ? shortDate(a.start) : "Još nema"}${r ? ` · 6 tj.: ${r.m.best[k]} W` : ""}</p></div>`; }).join("");
+
+  // FTP setting vs 20-minute estimate
+  const year = rides.filter(r => r.start >= now - 365 * DAY); if(!year.length){ year.push(rides.at(-1)); }
+  const est = year.filter(r => r.m.best?.m20).map(r => [r.start, Math.round(r.m.best.m20 * .95)]);
+  const fv = [...year.map(r => r.ftp), ...est.map(e => e[1]), settings.ftp];
+  const c3 = chart($("#pg-ftp"), Math.min(...fv) - 10, Math.max(...fv) + 10);
+  const t0 = year[0].start, span = Math.max(DAY, now - t0), X3 = t => c3.L + (t - t0) / span * c3.w;
+  const steps = []; year.forEach(r => { if(steps.length) steps.push([X3(r.start), steps.at(-1)[1]]); steps.push([X3(r.start), c3.Y(r.ftp)]); });
+  steps.push([X3(now), steps.at(-1)[1]], [X3(now), c3.Y(settings.ftp)]);
+  c3.line(steps, cssVar("--text"), 1.5);
+  c3.g.fillStyle = cssVar("--z3"); est.forEach(([t, v]) => { c3.g.beginPath(); c3.g.arc(X3(t), c3.Y(v), 4, 0, 7); c3.g.fill(); });
+  [t0, t0 + span / 2, now].forEach(t => c3.xLabel(clamp(X3(t), c3.L + 16, c3.L + c3.w - 16), shortDate(t)));
+}
+
+/* ============ backup ============ */
+async function exportBackup(){
+  const data = { app: "pedala", version: 1, exported: Date.now(), settings, workouts: store.get("workouts", []), routes: routes(), rides: await dbAll() };
+  const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([JSON.stringify(data)], { type: "application/json" }));
+  a.download = `pedala-kopija-${new Date().toISOString().slice(0, 10)}.json`;
+  document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  toast(`Izvezeno vožnji: ${data.rides.length}`);
+}
+async function importBackup(file){
+  let data; try{ data = JSON.parse(await file.text()); }catch{ toast("Datoteka nije ispravna kopija"); return; }
+  if(data?.app !== "pedala" || !Array.isArray(data.rides)){ toast("Ovo nije Pedala kopija"); return; }
+  const have = new Set((await dbAll()).map(r => r.id)); let n = 0;
+  for(const r of data.rides) if(r?.id && r.m && !have.has(r.id)){ await dbPut(r); n++; }
+  const merge = (key, list) => { const cur = store.get(key, []), ids = new Set(cur.map(x => x.id)); return store.set(key, cur.concat((list || []).filter(x => x?.id && !ids.has(x.id)))); };
+  merge("workouts", data.workouts);
+  if(!merge("routes", data.routes)) toast("Rute nisu stale u preglednik");
+  if(data.settings && confirm("Preuzeti i postavke iz kopije (FTP, težina, brzine)?")){ Object.assign(settings, data.settings); store.set("settings", settings); fillSettings(); }
+  toast(`Uvezeno novih vožnji: ${n}`); renderHistory();
+}
+$("#btn-backup").onclick = () => exportBackup().catch(e => toast("Izvoz nije uspio: " + e.message));
+$("#backup-file").onchange = async e => { const f = e.target.files[0]; e.target.value = ""; if(f) await importBackup(f); };
+
+/* ============ intervals.icu ============
+   Uploads go through api/intervals.js on Vercel with the personal API key from Settings.
+   Each ride queued for upload carries ride.icu = { status: "pending" | "done" | "error", activityId, error };
+   pending rides are retried on load, when the tablet comes back online and after every save. */
+const icuKey = () => (settings.icuKey || "").trim();
+let icuServer = false;                                   // INTERVALS_API_KEY is set on Vercel
+const icuOn = () => !!icuKey() || icuServer;
+async function icuCall(body){
+  const r = await fetch("/api/intervals", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...body, key: icuKey() }) });
+  const j = await r.json().catch(() => ({}));
+  if(!r.ok){ const e = new Error(j.error || (r.status === 404 ? "Slanje radi samo na Vercel deployu (treba api/intervals.js)" : "intervals.icu greška " + r.status)); e.status = r.status; throw e; }
+  return j;
+}
+const icuAuthError = e => e.status === 401 || e.status === 403;
+function b64(bytes){ let s = ""; for(let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000)); return btoa(s); }
+
+async function icuSaveKey(){
+  settings.icuKey = $("#icu-key").value.trim(); store.set("settings", settings); store.set("icuAthlete", null);
+  if(!icuOn()){ renderIcu(); toast("intervals.icu odspojen"); return; }
+  $("#icu-status").textContent = "Provjeravam…";
+  try{ const j = await icuCall({ action: "athlete" }); store.set("icuAthlete", j.name || String(j.id || "")); toast("intervals.icu povezan"); syncIcu(); }
+  catch(e){ toast(icuAuthError(e) ? "intervals.icu ne prihvaća ovaj API ključ" : e.message); }
+  renderIcu();
+}
+
+/* upload one ride; returns false when the queue should stop for now */
+async function icuUpload(r){
+  try{
+    const j = await icuCall({ action: "upload", fit: b64(encodeFit(r)), name: r.name, external_id: r.id,
+      description: `Pedala · ${fmtTime(r.m.duration)} · ${r.m.avgP} W prosj. · NP ${r.m.np} W · TSS ${r.m.tss}` });
+    r.icu = { status: "done", activityId: j.id != null ? String(j.id) : null }; await dbPut(r); return true;
+  }catch(e){
+    if(icuAuthError(e)){ toast("intervals.icu ne prihvaća API ključ. Provjeri ga u Postavkama."); return false; }   // ride stays queued
+    if(e.status >= 400 && e.status < 500 && e.status !== 404 && e.status !== 429){ r.icu = { status: "error", error: e.message }; await dbPut(r); return true; }
+    console.warn("intervals.icu upload", e); return false;     // offline, rate limit or service down: retry later
+  }
+}
+let icuBusy = false;
+async function syncIcu(){
+  if(icuBusy || !icuOn() || !navigator.onLine) return;
+  icuBusy = true; let sent = 0;
+  try{
+    const queue = (await dbAll()).filter(r => r.icu?.status === "pending").sort((a, b) => a.start - b.start);
+    for(const r of queue){ if(!await icuUpload(r)) break; if(r.icu.status === "done") sent++; else toast("intervals.icu: " + r.icu.error); renderHistoryIfOpen(); }
+  }catch(e){ console.warn("intervals.icu sync", e); }
+  finally{ icuBusy = false; renderHistoryIfOpen(); }
+  if(sent) toast(sent === 1 ? "Vožnja je na intervals.icu" : `Na intervals.icu poslano vožnji: ${sent}`);
+}
+async function queueIcu(r){ r.icu = { status: "pending" }; await dbPut(r); renderHistory(); syncIcu(); }
+function icuButton(r){
+  const s = r.icu?.status;
+  if(s === "done") return `<a class="btn small" href="https://intervals.icu/${r.icu.activityId ? "activities/" + encodeURIComponent(r.icu.activityId) : "calendar"}" target="_blank" rel="noopener">intervals.icu ↗</a>`;
+  if(!icuOn()) return "";
+  if(s === "pending") return `<button class="btn small" disabled>Šaljem…</button>`;
+  if(s === "error") return `<button class="btn small danger" data-icu title="${String(r.icu.error).replace(/[<>&"]/g, "")}">Ponovi slanje</button>`;
+  return `<button class="btn small" data-icu>Na intervals.icu</button>`;
+}
+const renderHistoryIfOpen = () => { if($("#view-history").classList.contains("active")) renderHistory(); };
+function renderIcu(){
+  const k = icuKey(), who = store.get("icuAthlete", null);
+  $("#icu-key").value = k;
+  $("#icu-status").textContent = !k && icuServer && who == null ? "Ključ je postavljen na Vercelu (INTERVALS_API_KEY). Klikni Spremi i provjeri za provjeru."
+    : !k && !icuServer ? "Nije povezano." : who != null ? `Povezano${who ? ": " + who : ""}. Ako tablet nije na internetu, vožnje čekaju i pošalju se kad se veza vrati.`
+    : "Ključ je upisan, ali još nije provjeren.";
+  $("#icu-auto").checked = settings.icuAuto !== false;
+}
+$("#btn-icu").onclick = () => icuSaveKey();
+$("#icu-key").addEventListener("keydown", e => { if(e.key === "Enter"){ e.preventDefault(); icuSaveKey(); } });
+$("#icu-auto").onchange = e => { settings.icuAuto = e.target.checked; store.set("settings", settings); };
+window.addEventListener("online", () => syncIcu());
+document.addEventListener("visibilitychange", () => { if(document.visibilityState === "visible") syncIcu(); });
 
 /* ============ summary ============ */
 let pendingRide = null;
@@ -1081,8 +1371,11 @@ function resetRide(){
   S.started = false; S.running = false; S.samples = []; S.t = 0; S.woT = 0; S.dist = 0; S.v = 0; S.lastSeg = -1; S.bias = 1; pendingRide = null;
   applyControl(); render();
 }
-$("#sum-save").onclick = async () => { try{ await dbPut(pendingRide); toast("Vožnja spremljena"); }catch(e){ toast("Spremanje nije uspjelo: " + e.message); return; }
-  const r = pendingRide; $("#dlg-summary").close(); resetRide(); if(confirm("Skinuti .FIT datoteku sada?")) downloadFit(r); };
+$("#sum-save").onclick = async () => {
+  const toIcu = icuOn() && settings.icuAuto !== false; if(toIcu) pendingRide.icu = { status: "pending" };
+  try{ await dbPut(pendingRide); toast(toIcu ? "Vožnja spremljena, šaljem na intervals.icu" : "Vožnja spremljena"); navigator.storage?.persist?.().catch(() => {}); }catch(e){ toast("Spremanje nije uspjelo: " + e.message); return; }
+  const r = pendingRide; $("#dlg-summary").close(); resetRide();
+  if(toIcu) syncIcu(); else if(confirm("Skinuti .FIT datoteku sada?")) downloadFit(r); };
 $("#sum-discard").onclick = () => { if(confirm("Odbaciti vožnju bez spremanja?")){ $("#dlg-summary").close(); resetRide(); } };
 $("#sum-resume").onclick = () => { $("#dlg-summary").close(); start(); };
 
@@ -1098,7 +1391,7 @@ $("#settings-form").addEventListener("input", e => { const f = e.currentTarget;
 function showView(v){
   document.querySelectorAll(".tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.view === v));
   document.querySelectorAll(".view").forEach(el => el.classList.toggle("active", el.id === "view-" + v));
-  if(v === "workouts") renderWorkouts(); if(v === "history") renderHistory(); if(v === "settings") fillSettings(); if(v === "ride") render();
+  if(v === "workouts") renderWorkouts(); if(v === "history") renderHistory(); if(v === "progress") renderProgress(); if(v === "settings"){ fillSettings(); renderIcu(); } if(v === "ride") render();
 }
 document.querySelectorAll(".tabs button").forEach(b => b.onclick = () => showView(b.dataset.view));
 
@@ -1258,7 +1551,18 @@ $("#vid-form").onsubmit = e => { e.preventDefault(); const q = $("#vid-url").val
 VID_CHIPS.forEach(c => { const b = document.createElement("button"); b.type = "button"; b.textContent = c; b.onclick = () => { $("#vid-url").value = c; searchVideos(c + " cycling", c); }; $("#vid-chips").append(b); });
 $("#btn-vid-change").onclick = () => showPicker();
 $("#btn-vid-back").onclick = () => hidePicker();
-$("#btn-fs").onclick = () => { const el = document.documentElement; document.fullscreenElement ? document.exitFullscreen() : el.requestFullscreen?.().catch(()=>{}); };
+/* fullscreen the video area with metrics on top; on a tablet also turn to landscape */
+$("#btn-fs").onclick = async () => {
+  if(document.fullscreenElement){ document.exitFullscreen(); return; }
+  try{ await $("#stage").requestFullscreen({ navigationUI: "hide" }); }catch{ toast("Cijeli zaslon nije dostupan"); return; }
+  try{ await screen.orientation?.lock?.("landscape"); }catch{}
+};
+document.addEventListener("fullscreenchange", () => {
+  const on = document.fullscreenElement === $("#stage");
+  $("#btn-fs").textContent = on ? "Izađi" : "Cijeli zaslon";
+  if(!on) try{ screen.orientation?.unlock?.(); }catch{}
+  render();
+});
 $("#btn-freeride").onclick = () => setWorkout(null);
 $("#zwo-file").onchange = async e => {
   const saved = store.get("workouts", []); let ok = 0;
@@ -1271,7 +1575,7 @@ $("#gpx-file").onchange = async e => {
   if(!store.set("routes", saved)){ toast("Nema mjesta za još ruta. Ukloni neku staru pa probaj ponovno."); ok = 0; }
   e.target.value = ""; if(ok) toast(`Uvezeno ruta: ${ok}`); renderRoutes();
 };
-window.addEventListener("resize", () => drawProfile());
+window.addEventListener("resize", () => { drawProfile(); drawProgress(); });
 window.addEventListener("beforeunload", e => { if(S.started){ e.preventDefault(); e.returnValue = ""; } });
 
 /* init */
@@ -1282,6 +1586,8 @@ window.addEventListener("beforeunload", e => { if(S.started){ e.preventDefault()
   const v = store.get("video", null); v ? setVideo(v) : showPicker();
   fillSettings(); render();
   autoConnect();
+  fetch("/api/intervals").then(r => r.ok ? r.json() : {}).then(j => { icuServer = !!j.serverKey; }).catch(() => {})
+    .finally(() => { syncIcu(); renderHistoryIfOpen(); if($("#view-settings").classList.contains("active")) renderIcu(); });
 })();
 window.__pedala = { S, parseZwo, parseGpx, setRoute, routes, gradeAt, trainerGrade, clickKeys, onClickKey, encodeFit, metrics, allWorkouts, setWorkout, GEARS };
 </script>
