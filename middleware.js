@@ -3,7 +3,11 @@
 // Vercel → Project → Settings → Environment Variables. Without a password nobody gets in.
 export const config = { matcher: "/:path*" };
 
+/* Chrome fetches these without the login when it installs the app, and they hold nothing private */
+const PUBLIC = /^\/(manifest\.webmanifest|sw\.js|icons\/[\w.-]+\.png)$/;
+
 export default function middleware(request){
+  if(PUBLIC.test(new URL(request.url).pathname)) return;
   const user = process.env.PEDALA_USER || "jspisic", pass = process.env.PEDALA_PASSWORD;
   if(!pass) return new Response("Prijava nije postavljena: na Vercelu dodaj PEDALA_PASSWORD i napravi Redeploy.", { status: 503, headers: { "content-type": "text/plain; charset=utf-8" } });
   const [scheme, encoded] = (request.headers.get("authorization") || "").split(" ");

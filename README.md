@@ -81,6 +81,24 @@ Ključevi postavljeni na Vercelu ne gube se ni nakon deploya, ni na drugoj adres
 
 YouTube ključ s Vercela Google prima sa servera, a ne iz preglednika. Zato u Google Cloud Consoleu za taj ključ postavi **Application restrictions: None**, a pod **API restrictions** ostavi samo YouTube Data API v3. S ograničenjem na web stranice Google će odbiti pretragu.
 
+## Instalacija kao aplikacija
+
+Pedala je PWA: ima manifest, ikone i service worker, pa je Chrome može instalirati kao aplikaciju. Instalirana se otvara preko cijelog ekrana, bez Chromeove trake, i ima svoju ikonu.
+
+1. Otvori stranicu u Chromeu i prijavi se.
+2. Klikni **⋮ → Dodaj na početni zaslon → Instaliraj**, ili prihvati ponudu za instalaciju kad se pojavi.
+3. Pokreni Pedalu s ikone na početnom zaslonu.
+
+Manifest, `sw.js` i ikone su javni (bez prijave), jer ih Chrome pri instalaciji dohvaća bez lozinke. U njima nema ničeg privatnog. Service worker ne presreće otvaranje stranice, pa prozor za prijavu radi i u instaliranoj aplikaciji.
+
+Postavke, vožnje i ključ ostaju isti, jer instalirana aplikacija dijeli podatke s Chromeom na istoj adresi.
+
+## Glas
+
+Najave koriste hrvatski glas. Ako ga uređaj nema, najave su utišane, a u Postavkama piše kako ga instalirati, da ne bi hrvatski tekst čitao njemački ili engleski glas. Glas se može i ručno odabrati u **Postavke → Glas za najave**, a gumb **Isprobaj glas** ga pušta.
+
+Stranica je označena da je Chrome ne prevodi automatski (`translate="no"`).
+
 ## Prijava
 
 Cijela stranica, uključujući `api/intervals.js`, zaključana je HTTP Basic Auth prijavom (`middleware.js`). Bez prijave nitko ne može otvoriti aplikaciju ni koristiti funkciju za slanje.
