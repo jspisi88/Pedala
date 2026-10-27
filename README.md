@@ -1,6 +1,6 @@
 # Pedala
 
-Aplikacija za vožnju na trenažeru u pregledniku, bez instalacije. Cijela aplikacija je jedna datoteka `index.html`. Jedini dio na serveru je mala Vercel funkcija `api/intervals.js`, koja služi samo za slanje vožnji na intervals.icu.
+Aplikacija za vožnju na trenažeru u pregledniku, bez instalacije. Cijela aplikacija je jedna datoteka `index.html`. Na serveru su samo male Vercel funkcije: `api/youtube.js` za pretragu videa, `api/intervals.js` za slanje vožnji na intervals.icu i `middleware.js` za prijavu.
 
 ## Što radi
 
@@ -36,6 +36,21 @@ Ne treba build ni `vercel.json`. Vercel sam poslužuje `index.html`, a `api/inte
 
 Svaki push na `main` automatski se ponovno deploya.
 
+### Vercel varijable
+
+U **Project → Settings → Environment Variables** dodaj ove varijable, pa pokreni **Redeploy**:
+
+| Varijabla | Za što |
+|---|---|
+| `PEDALA_PASSWORD` | šifra za prijavu (obavezno) |
+| `PEDALA_USER` | korisničko ime, ako ne želiš zadano `jspisic` |
+| `YOUTUBE_API_KEY` | YouTube ključ za pretragu videa |
+| `INTERVALS_API_KEY` | intervals.icu API ključ |
+
+Ključevi postavljeni na Vercelu ne gube se ni nakon deploya, ni na drugoj adresi (npr. preview deploy), ni nakon brisanja podataka preglednika, i nikad ne dolaze na tablet. Ključ upisan u Postavkama i dalje radi kao zamjena kad varijabla nije postavljena.
+
+YouTube ključ s Vercela Google prima sa servera, a ne iz preglednika. Zato u Google Cloud Consoleu za taj ključ postavi **Application restrictions: None**, a pod **API restrictions** ostavi samo YouTube Data API v3. S ograničenjem na web stranice Google će odbiti pretragu.
+
 ## Prijava
 
 Cijela stranica, uključujući `api/intervals.js`, zaključana je HTTP Basic Auth prijavom (`middleware.js`). Bez prijave nitko ne može otvoriti aplikaciju ni koristiti funkciju za slanje.
@@ -58,14 +73,13 @@ API ključevi (YouTube, intervals.icu) ionako nisu u kodu ni na serveru. Spremlj
 [intervals.icu](https://intervals.icu) je besplatan servis za analizu treninga (forma, krivulja snage, zone). Postavlja se jednom:
 
 1. Na intervals.icu otvori **Settings → Developer Settings** i stvori **API key**.
-2. Na tabletu otvori **Postavke → intervals.icu**, zalijepi ključ i klikni **Spremi i provjeri**. Ako je ključ ispravan, piše „Povezano: tvoje ime“.
-
-Na Vercelu ne treba postavljati ništa.
+2. Dodaj ga na Vercelu kao `INTERVALS_API_KEY` i pokreni Redeploy. Druga mogućnost je da ga na tabletu zalijepiš u **Postavke → intervals.icu**.
+3. U **Postavke → intervals.icu** klikni **Spremi i provjeri**. Ako je ključ ispravan, piše „Povezano: tvoje ime“.
 
 Kako radi:
 
 - Nakon spremanja vožnje Pedala napravi `.FIT` i pošalje ga preko `api/intervals.js` na intervals.icu. Funkcija samo prosljeđuje zahtjev, da aplikacija ne ovisi o tome dopušta li intervals.icu pozive izravno iz preglednika.
-- API ključ je spremljen na tabletu, u postavkama (`localStorage`, `pedala.settings`). Ulazi i u sigurnosnu kopiju, pa tu datoteku ne dijeli s drugima.
+- Ključ s Vercela ima prednost i nikad ne dolazi na tablet. Ključ iz Postavki sprema se na tabletu (`localStorage`, `pedala.settings`) i ulazi u sigurnosnu kopiju, pa tu datoteku ne dijeli s drugima.
 - Ako nema interneta, vožnja čeka u redu. Pošalje se kad se veza vrati, kad ponovno otvoriš aplikaciju ili nakon sljedećeg spremanja. Isto vrijedi ako ključ prestane vrijediti: vožnje čekaju dok ne upišeš novi.
 - U Povijesti svaka vožnja ima gumb **Na intervals.icu**, **Šaljem…**, **intervals.icu ↗** (otvara aktivnost) ili **Ponovi slanje** (kad je slanje palo). Tako se mogu poslati i starije vožnje.
 - intervals.icu ne stvara duplikate: ista datoteka poslana dvaput vraća postojeću aktivnost.
@@ -128,6 +142,7 @@ U svim slučajevima IndexedDB ostaje lokalna baza, pa aplikacija radi i bez inte
 | `exportBackup`, `importBackup` | Sigurnosna kopija |
 | `icuSaveKey`, `syncIcu`, `icuUpload` | Povezivanje s intervals.icu i red slanja |
 | `api/intervals.js` | Vercel funkcija koja prosljeđuje upload na intervals.icu |
+| `api/youtube.js` | Vercel funkcija za pretragu videa s `YOUTUBE_API_KEY` |
 | `middleware.js` | Prijava (Basic Auth) ispred cijele stranice |
 
 Format uzorka u `ride.samples`: `[t, snaga W, kadenca, puls, brzina cm/s, udaljenost m]`, a za rute još `lat, lon, visina`.

@@ -1,17 +1,21 @@
 // Vercel serverless function that forwards requests to intervals.icu, so the app does not
 // depend on intervals.icu allowing cross-origin calls from the browser.
-// The personal API key comes from the app (Settings) and is only passed through.
+// The API key is INTERVALS_API_KEY on Vercel when set, otherwise the one the app sends from Settings.
+//   GET  /api/intervals                              -> { serverKey: true | false }
 //   POST /api/intervals { action: "athlete", key }  -> { id, name }
 //   POST /api/intervals { action: "upload", key, fit (base64), name, description, external_id }  -> { id, created }
 const ICU = "https://intervals.icu/api/v1/athlete/0";   // 0 = the athlete who owns the key
 
 module.exports = async (req, res) => {
   res.setHeader("cache-control", "no-store");
-  if(req.method !== "POST") return res.status(405).json({ error: "Dozvoljen je samo POST" });
+  const serverKey = process.env.INTERVALS_API_KEY;
+  if(req.method === "GET") return res.status(200).json({ serverKey: !!serverKey });
+  if(req.method !== "POST") return res.status(405).json({ error: "Dozvoljeni su samo GET i POST" });
   let b = req.body || {};
   if(typeof b === "string"){ try{ b = JSON.parse(b); }catch{ return res.status(400).json({ error: "Neispravan JSON" }); } }
-  if(!b.key) return res.status(401).json({ error: "Nema API ključa" });
-  const auth = { Authorization: "Basic " + Buffer.from("API_KEY:" + b.key).toString("base64") };
+  const key = serverKey || b.key;
+  if(!key) return res.status(401).json({ error: "Nema API ključa" });
+  const auth = { Authorization: "Basic " + Buffer.from("API_KEY:" + key).toString("base64") };
   try{
     if(b.action === "athlete"){
       const r = await fetch(ICU, { headers: auth }), j = await body(r);

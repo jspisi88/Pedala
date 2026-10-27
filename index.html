@@ -395,7 +395,7 @@ dialog p{color:var(--muted);margin:0 0 14px}
         <label>Težina (kg)<input name="weight" type="number" min="30" max="200" step="0.5"></label>
         <label>Prednji lančanik (zubi)<input name="chainring" type="number" min="20" max="60" step="1"></label>
         <label>Zwift Cog (zubi)<input name="cog" type="number" min="10" max="30" step="1"></label>
-        <label class="full">YouTube API ključ (za pretragu videa)<input name="ytKey" type="text" autocomplete="off" spellcheck="false" placeholder="AIza…"></label>
+        <label class="full">YouTube API ključ (samo ako nije postavljen na Vercelu)<input name="ytKey" type="text" autocomplete="off" spellcheck="false" placeholder="AIza…"></label>
         <p class="full note" style="margin:-4px 0 4px">Besplatan je: na console.cloud.google.com napravi projekt, uključi <b>YouTube Data API v3</b> i pod Credentials stvori API key. Dnevna kvota je dovoljna za oko 100 pretraga. Bez ključa i dalje možeš zalijepiti link.</p>
         <label class="full check"><input name="beep" type="checkbox"> Zvučni signal na promjeni intervala</label>
         <label class="full check"><input name="pauseVideo" type="checkbox"> Pauziraj video kad pauziram trening</label>
@@ -878,32 +878,40 @@ function renderRecent(){
   $("#vid-recent-title").hidden = !r.length; r.forEach(v => box.append(vidCard(v)));
 }
 function vidMsg(html){ const m = $("#vid-msg"); m.hidden = !html; m.innerHTML = html || ""; }
+/* search through api/youtube.js with YOUTUBE_API_KEY from Vercel; without it, straight to Google with the key from Settings */
+async function ytSearch(q, long){
+  let r = null, j = {};
+  try{ const u = new URL("/api/youtube", location.href); u.searchParams.set("q", q); if(long) u.searchParams.set("long", "1");
+    r = await fetch(u); j = await r.json().catch(() => ({})); }catch{}     // offline, or opened without Vercel
+  if(r?.ok) return j.items;
+  if(r && r.status !== 501 && r.status !== 404) throw new Error(j.error || String(r.status));
+  const key = settings.ytKey; if(!key) throw new Error(r ? "noKey" : "Failed to fetch");
+  const u = new URL("https://www.googleapis.com/youtube/v3/search");
+  Object.entries({ part: "snippet", type: "video", maxResults: 24, videoEmbeddable: "true", q, key }).forEach(([k, v]) => u.searchParams.set(k, v));
+  if(long) u.searchParams.set("videoDuration", "long");
+  const res = await fetch(u), data = await res.json();
+  if(!res.ok) throw new Error(data.error?.errors?.[0]?.reason || data.error?.message || res.status);
+  const items = (data.items || []).filter(i => i.id?.videoId), durs = {};
+  if(items.length){
+    const v = new URL("https://www.googleapis.com/youtube/v3/videos");
+    v.searchParams.set("part", "contentDetails"); v.searchParams.set("id", items.map(i => i.id.videoId).join(",")); v.searchParams.set("key", key);
+    try{ const jr = await (await fetch(v)).json(); (jr.items || []).forEach(x => durs[x.id] = isoDur(x.contentDetails?.duration)); }catch{}
+  }
+  return items.map(i => ({ id: i.id.videoId, title: i.snippet.title, channel: i.snippet.channelTitle, thumb: i.snippet.thumbnails?.medium?.url, dur: durs[i.id.videoId] || 0 }));
+}
 async function searchVideos(q, label){
-  const key = settings.ytKey;
-  if(!key){ vidMsg('Za pretragu treba besplatni YouTube API ključ. Upiši ga u <b>Postavke</b>, tamo su i upute. Do tada možeš zalijepiti link videa.'); return; }
   vidMsg("Tražim…"); $("#vid-results").innerHTML = ""; $("#vid-res-title").hidden = true;
   try{
-    const u = new URL("https://www.googleapis.com/youtube/v3/search");
-    Object.entries({ part: "snippet", type: "video", maxResults: 24, videoEmbeddable: "true", q, key }).forEach(([k, v]) => u.searchParams.set(k, v));
-    if($("#vid-long").checked) u.searchParams.set("videoDuration", "long");
-    const r = await fetch(u); const j = await r.json();
-    if(!r.ok) throw new Error(j.error?.errors?.[0]?.reason || j.error?.message || r.status);
-    const items = (j.items || []).filter(i => i.id?.videoId);
-    const durs = {};
-    if(items.length){
-      const v = new URL("https://www.googleapis.com/youtube/v3/videos");
-      v.searchParams.set("part", "contentDetails"); v.searchParams.set("id", items.map(i => i.id.videoId).join(",")); v.searchParams.set("key", key);
-      try{ const jr = await (await fetch(v)).json(); (jr.items || []).forEach(x => durs[x.id] = isoDur(x.contentDetails?.duration)); }catch{}
-    }
-    const list = items.map(i => ({ id: i.id.videoId, title: unesc(i.snippet.title), channel: unesc(i.snippet.channelTitle),
-      thumb: i.snippet.thumbnails?.medium?.url, dur: durs[i.id.videoId] || 0 }));
+    const list = (await ytSearch(q, $("#vid-long").checked)).map(v => ({ ...v, title: unesc(v.title), channel: unesc(v.channel) }));
     vidMsg(list.length ? "" : "Ništa nije pronađeno. Probaj drugi pojam ili isključi filter dugih videa.");
     $("#vid-res-title").hidden = !list.length; $("#vid-res-title").textContent = `Rezultati za „${label || q}”`;
     list.forEach(v => $("#vid-results").append(vidCard(v)));
   }catch(e){
     const why = String(e.message);
-    vidMsg(why.includes("quota") ? "Dnevna kvota pretraga je potrošena. Resetira se oko 9 ujutro po našem vremenu, a do tada možeš zalijepiti link."
-      : why.includes("keyInvalid") || why.includes("API key") ? "YouTube ne prihvaća API ključ. Provjeri ga u <b>Postavkama</b> i je li uključen YouTube Data API v3."
+    vidMsg(why === "noKey" ? "Za pretragu treba besplatni YouTube API ključ. Dodaj ga na Vercelu kao <b>YOUTUBE_API_KEY</b> ili ga upiši u <b>Postavke</b>. Do tada možeš zalijepiti link videa."
+      : why.includes("quota") ? "Dnevna kvota pretraga je potrošena. Resetira se oko 9 ujutro po našem vremenu, a do tada možeš zalijepiti link."
+      : /referer|referrer/i.test(why) ? "Google odbija ključ zbog ograničenja na web stranice. U Google Cloud Consoleu za ovaj ključ postavi <b>Application restrictions: None</b>, a API restrictions ostavi na YouTube Data API v3."
+      : why.includes("keyInvalid") || why.includes("API key") ? "YouTube ne prihvaća API ključ. Provjeri ga i je li uključen YouTube Data API v3."
       : why.includes("Failed to fetch") ? "Nema veze s YouTubeom. Provjeri internet."
       : "Pretraga nije uspjela: " + why.replace(/[<>]/g, ""));
   }
@@ -1270,6 +1278,8 @@ $("#backup-file").onchange = async e => { const f = e.target.files[0]; e.target.
    Each ride queued for upload carries ride.icu = { status: "pending" | "done" | "error", activityId, error };
    pending rides are retried on load, when the tablet comes back online and after every save. */
 const icuKey = () => (settings.icuKey || "").trim();
+let icuServer = false;                                   // INTERVALS_API_KEY is set on Vercel
+const icuOn = () => !!icuKey() || icuServer;
 async function icuCall(body){
   const r = await fetch("/api/intervals", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...body, key: icuKey() }) });
   const j = await r.json().catch(() => ({}));
@@ -1281,7 +1291,7 @@ function b64(bytes){ let s = ""; for(let i = 0; i < bytes.length; i += 0x8000) s
 
 async function icuSaveKey(){
   settings.icuKey = $("#icu-key").value.trim(); store.set("settings", settings); store.set("icuAthlete", null);
-  if(!settings.icuKey){ renderIcu(); toast("intervals.icu odspojen"); return; }
+  if(!icuOn()){ renderIcu(); toast("intervals.icu odspojen"); return; }
   $("#icu-status").textContent = "Provjeravam…";
   try{ const j = await icuCall({ action: "athlete" }); store.set("icuAthlete", j.name || String(j.id || "")); toast("intervals.icu povezan"); syncIcu(); }
   catch(e){ toast(icuAuthError(e) ? "intervals.icu ne prihvaća ovaj API ključ" : e.message); }
@@ -1302,7 +1312,7 @@ async function icuUpload(r){
 }
 let icuBusy = false;
 async function syncIcu(){
-  if(icuBusy || !icuKey() || !navigator.onLine) return;
+  if(icuBusy || !icuOn() || !navigator.onLine) return;
   icuBusy = true; let sent = 0;
   try{
     const queue = (await dbAll()).filter(r => r.icu?.status === "pending").sort((a, b) => a.start - b.start);
@@ -1315,7 +1325,7 @@ async function queueIcu(r){ r.icu = { status: "pending" }; await dbPut(r); rende
 function icuButton(r){
   const s = r.icu?.status;
   if(s === "done") return `<a class="btn small" href="https://intervals.icu/${r.icu.activityId ? "activities/" + encodeURIComponent(r.icu.activityId) : "calendar"}" target="_blank" rel="noopener">intervals.icu ↗</a>`;
-  if(!icuKey()) return "";
+  if(!icuOn()) return "";
   if(s === "pending") return `<button class="btn small" disabled>Šaljem…</button>`;
   if(s === "error") return `<button class="btn small danger" data-icu title="${String(r.icu.error).replace(/[<>&"]/g, "")}">Ponovi slanje</button>`;
   return `<button class="btn small" data-icu>Na intervals.icu</button>`;
@@ -1324,7 +1334,8 @@ const renderHistoryIfOpen = () => { if($("#view-history").classList.contains("ac
 function renderIcu(){
   const k = icuKey(), who = store.get("icuAthlete", null);
   $("#icu-key").value = k;
-  $("#icu-status").textContent = !k ? "Nije povezano." : who != null ? `Povezano${who ? ": " + who : ""}. Ako tablet nije na internetu, vožnje čekaju i pošalju se kad se veza vrati.`
+  $("#icu-status").textContent = !k && icuServer && who == null ? "Ključ je postavljen na Vercelu (INTERVALS_API_KEY). Klikni Spremi i provjeri za provjeru."
+    : !k && !icuServer ? "Nije povezano." : who != null ? `Povezano${who ? ": " + who : ""}. Ako tablet nije na internetu, vožnje čekaju i pošalju se kad se veza vrati.`
     : "Ključ je upisan, ali još nije provjeren.";
   $("#icu-auto").checked = settings.icuAuto !== false;
 }
@@ -1361,7 +1372,7 @@ function resetRide(){
   applyControl(); render();
 }
 $("#sum-save").onclick = async () => {
-  const toIcu = !!icuKey() && settings.icuAuto !== false; if(toIcu) pendingRide.icu = { status: "pending" };
+  const toIcu = icuOn() && settings.icuAuto !== false; if(toIcu) pendingRide.icu = { status: "pending" };
   try{ await dbPut(pendingRide); toast(toIcu ? "Vožnja spremljena, šaljem na intervals.icu" : "Vožnja spremljena"); navigator.storage?.persist?.().catch(() => {}); }catch(e){ toast("Spremanje nije uspjelo: " + e.message); return; }
   const r = pendingRide; $("#dlg-summary").close(); resetRide();
   if(toIcu) syncIcu(); else if(confirm("Skinuti .FIT datoteku sada?")) downloadFit(r); };
@@ -1575,7 +1586,8 @@ window.addEventListener("beforeunload", e => { if(S.started){ e.preventDefault()
   const v = store.get("video", null); v ? setVideo(v) : showPicker();
   fillSettings(); render();
   autoConnect();
-  syncIcu();
+  fetch("/api/intervals").then(r => r.ok ? r.json() : {}).then(j => { icuServer = !!j.serverKey; }).catch(() => {})
+    .finally(() => { syncIcu(); renderHistoryIfOpen(); if($("#view-settings").classList.contains("active")) renderIcu(); });
 })();
 window.__pedala = { S, parseZwo, parseGpx, setRoute, routes, gradeAt, trainerGrade, clickKeys, onClickKey, encodeFit, metrics, allWorkouts, setWorkout, GEARS };
 </script>
