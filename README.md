@@ -22,7 +22,7 @@ Aplikacija za vožnju na trenažeru u pregledniku, bez instalacije. Cijela aplik
   Svaki interval ima ciljanu kadencu i uputu, npr. „Samo lijeva noga“. Kadenca je zelena kad si u rasponu, a narančasta kad nisi. Glas najavljuje kadencu i javlja prosjek nakon svakog drilla. Uvoz `.zwo` čita i Zwiftove atribute `Cadence` i `CadenceResting`.
 - **YouTube video** uz vožnju: pretraga (uz besplatni API ključ) ili zalijepljen link. Gumb **Cijeli zaslon** prikazuje video preko cijelog ekrana sa snagom, ciljem ili nagibom, intervalom, kadencom, pulsom, vremenom i brzinom preko slike. YouTubeov vlastiti gumb za cijeli zaslon je isključen jer bi sakrio te podatke. Iza metrike je profil kao u Zwiftu: blokovi treninga u bojama zona (ili visinski profil rute), bijela crta snage i crvena crta pulsa. Puls se crta i na profilu ispod videa.
 - **Bez videa:** gumb **Bez videa: profil treninga** pretvara prostor za video u veliki profil treninga s metrikom na dnu, kao u cijelom zaslonu. Aplikacija pamti odabir.
-- **Glazba s YouTube Musica:** zalijepi link pjesme, albuma ili playliste (YouTube Music → Podijeli → Kopiraj vezu) ili potraži glazbu. Svira u malom prozoru u kutu, uz video ili uz profil, i ne pauzira se kad pauziraš vožnju. Poseban API ne treba: YouTube Music nema javni API, ali su njegove pjesme i playliste obični YouTube videi i playliste. Pretraga koristi isti `YOUTUBE_API_KEY` uz filtar na kategoriju Music, a linkovi rade i bez ključa.
+- **Glazba s YouTube Musica:** zalijepi link pjesme, albuma ili playliste (YouTube Music → Podijeli → Kopiraj vezu) ili potraži glazbu. Svira u malom prozoru u kutu, uz video ili uz profil, i ne pauzira se kad pauziraš vožnju. Gumbi ⏮ ⏯ ⏭ u traci playera rade i kad je player smanjen (⏮ i ⏭ samo za playliste i albume). Poseban API ne treba: YouTube Music nema javni API, ali su njegove pjesme i playliste obični YouTube videi i playliste. Pretraga koristi isti `YOUTUBE_API_KEY` uz filtar na kategoriju Music, a linkovi rade i bez ključa.
 - **Povijest:** metrike svake vožnje (NP, IF, TSS, kJ, najbolje snage) i izvoz u `.FIT` za Stravu, intervals.icu ili GoldenCheetah.
 - **intervals.icu:** svaka spremljena vožnja automatski ide na intervals.icu. Ako tablet nije na internetu, vožnja čeka i pošalje se kad se veza vrati.
 - **Izvještaj vožnje** (u sažetku na kraju i gumb **Izvještaj** u Povijesti), kao u Zwiftu:
@@ -80,6 +80,24 @@ U **Project → Settings → Environment Variables** dodaj ove varijable, pa pok
 Ključevi postavljeni na Vercelu ne gube se ni nakon deploya, ni na drugoj adresi (npr. preview deploy), ni nakon brisanja podataka preglednika, i nikad ne dolaze na tablet. Ključ upisan u Postavkama i dalje radi kao zamjena kad varijabla nije postavljena.
 
 YouTube ključ s Vercela Google prima sa servera, a ne iz preglednika. Zato u Google Cloud Consoleu za taj ključ postavi **Application restrictions: None**, a pod **API restrictions** ostavi samo YouTube Data API v3. S ograničenjem na web stranice Google će odbiti pretragu.
+
+## Instalacija kao aplikacija
+
+Pedala je PWA: ima manifest, ikone i service worker, pa je Chrome može instalirati kao aplikaciju. Instalirana se otvara preko cijelog ekrana, bez Chromeove trake, i ima svoju ikonu.
+
+1. Otvori stranicu u Chromeu i prijavi se.
+2. Klikni **⋮ → Dodaj na početni zaslon → Instaliraj**, ili prihvati ponudu za instalaciju kad se pojavi.
+3. Pokreni Pedalu s ikone na početnom zaslonu.
+
+Manifest, `sw.js` i ikone su javni (bez prijave), jer ih Chrome pri instalaciji dohvaća bez lozinke. U njima nema ničeg privatnog. Service worker ne presreće otvaranje stranice, pa prozor za prijavu radi i u instaliranoj aplikaciji.
+
+Postavke, vožnje i ključ ostaju isti, jer instalirana aplikacija dijeli podatke s Chromeom na istoj adresi.
+
+## Glas
+
+Najave koriste hrvatski glas. Ako ga uređaj nema, najave su utišane, a u Postavkama piše kako ga instalirati, da ne bi hrvatski tekst čitao njemački ili engleski glas. Glas se može i ručno odabrati u **Postavke → Glas za najave**, a gumb **Isprobaj glas** ga pušta.
+
+Stranica je označena da je Chrome ne prevodi automatski (`translate="no"`).
 
 ## Prijava
 

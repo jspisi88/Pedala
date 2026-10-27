@@ -1,9 +1,14 @@
 <!doctype html>
-<html lang="hr">
+<html lang="hr" translate="no">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#151b26">
+<meta name="google" content="notranslate">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
 <title>Pedala</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -127,7 +132,7 @@ a.btn{display:inline-block;color:inherit;text-decoration:none}
 .music{position:absolute;right:10px;top:54px;z-index:4;width:min(356px,calc(100% - 20px));background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,.35)}
 .music-bar{display:flex;align-items:center;gap:8px;padding:5px 6px 5px 12px;font-size:13px;color:var(--muted)}
 .music-bar b{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text);font-weight:500}
-.music-bar button{border:0;background:var(--panel2);border-radius:8px;padding:3px 9px;color:var(--text)}
+.music-bar button{border:0;background:var(--panel2);border-radius:8px;padding:3px 9px;color:var(--text);min-width:32px;min-height:30px}
 .stage .music iframe{position:static;display:block;width:100%;height:auto;aspect-ratio:16/9;border:0}
 .music.min iframe{height:0;aspect-ratio:auto}
 /* metrics over the video in fullscreen */
@@ -329,7 +334,7 @@ dialog.wide .sum{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}
       <div class="o-paused" id="o-paused" hidden>Pauza</div>
       <div class="o-msg" id="o-msg" hidden></div>
       <div class="music" id="music" hidden>
-        <div class="music-bar"><span>♪</span><b id="music-title">Glazba</b><button type="button" id="mus-min" aria-label="Smanji">–</button><button type="button" id="mus-stop" aria-label="Zaustavi glazbu">✕</button></div>
+        <div class="music-bar"><span>♪</span><b id="music-title">Glazba</b><button type="button" id="mus-prev" aria-label="Prethodna pjesma">⏮</button><button type="button" id="mus-play" aria-label="Pauza ili nastavak glazbe">⏸</button><button type="button" id="mus-next" aria-label="Sljedeća pjesma">⏭</button><button type="button" id="mus-min" aria-label="Smanji">–</button><button type="button" id="mus-stop" aria-label="Zaustavi glazbu">✕</button></div>
         <div id="music-frame"></div>
       </div>
       <div class="vid-tools" id="vid-tools" hidden>
@@ -450,6 +455,9 @@ dialog.wide .sum{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}
         <p class="full note" style="margin:-4px 0 4px">Besplatan je: na console.cloud.google.com napravi projekt, uključi <b>YouTube Data API v3</b> i pod Credentials stvori API key. Dnevna kvota je dovoljna za oko 100 pretraga. Bez ključa i dalje možeš zalijepiti link.</p>
         <label class="full check"><input name="beep" type="checkbox"> Zvučni signal na promjeni intervala</label>
         <label class="full check"><input name="voice" type="checkbox"> Glasovne najave (sljedeći interval, rezultat intervala i dionice)</label>
+        <label class="full">Glas za najave<select name="voiceName"><option value="">Automatski (hrvatski)</option></select></label>
+        <div class="full dlg-acts" style="justify-content:flex-start;margin-top:-4px"><button class="btn small" type="button" id="btn-voice-test">Isprobaj glas</button></div>
+        <p class="full note" id="voice-note" hidden></p>
         <label class="full check"><input name="pauseVideo" type="checkbox"> Pauziraj video kad pauziram trening</label>
         <label class="full check"><input name="autoPause" type="checkbox"> Automatska pauza kad prestanem pedalirati</label>
       </form>
@@ -941,16 +949,34 @@ function segSpeechPower(sg){
   const a = Math.round(toWatts(w, sg.lo) * S.bias), b = Math.round(toWatts(w, sg.hi) * S.bias);
   return Math.abs(a - b) < 5 ? `${d} na ${a} ${plural(a, "vat", "vata", "vata")}` : `${d}, od ${a} do ${b} ${plural(b, "vat", "vata", "vata")}`;
 }
+/* The voice is the one picked in Settings, else a Croatian one. Without a Croatian voice the phone would
+   read the Croatian text with its default voice (often German or English), so then it stays silent
+   and says once in Settings how to install one. */
 let hrVoice = null;
-function say(text){
-  if(!settings.voice || !("speechSynthesis" in window)) return;
+const voices = () => window.speechSynthesis?.getVoices() || [];
+function pickVoice(){
+  const vs = voices();
+  return vs.find(v => v.voiceURI === settings.voiceName) || vs.find(v => /^hr([-_]|$)/i.test(v.lang)) || null;
+}
+function say(text, force = false){
+  if(!(settings.voice || force) || !("speechSynthesis" in window)) return;
   try{
-    hrVoice ||= speechSynthesis.getVoices().find(v => /^hr/i.test(v.lang)) || null;
-    const u = new SpeechSynthesisUtterance(text); u.lang = "hr-HR"; u.rate = 1.05; if(hrVoice) u.voice = hrVoice;
+    hrVoice ||= pickVoice();
+    if(!hrVoice){ if(!say.warned && voices().length){ say.warned = true; notify("Nema hrvatskog glasa na uređaju. Upute su u Postavkama, kod Glasa za najave."); } return; }
+    const u = new SpeechSynthesisUtterance(text); u.voice = hrVoice; u.lang = hrVoice.lang; u.rate = 1.05;
     speechSynthesis.speak(u);
   }catch{}
 }
-window.speechSynthesis?.addEventListener?.("voiceschanged", () => { hrVoice = null; });
+function fillVoices(){
+  const sel = $("#settings-form").voiceName, vs = voices(), hr = vs.filter(v => /^hr([-_]|$)/i.test(v.lang));
+  sel.innerHTML = `<option value="">Automatski (hrvatski)</option>` + [...hr, ...vs.filter(v => !hr.includes(v))]
+    .map(v => `<option value="${v.voiceURI.replace(/"/g, "&quot;")}">${v.name.replace(/</g, "")} · ${v.lang}</option>`).join("");
+  sel.value = vs.some(v => v.voiceURI === settings.voiceName) ? settings.voiceName : "";
+  const note = $("#voice-note");
+  note.hidden = hr.length > 0 || !vs.length;
+  note.innerHTML = "Na ovom uređaju nema hrvatskog glasa, pa su najave utišane da ih ne čita njemački ili engleski glas. Na Androidu: <b>Postavke → Opće upravljanje → Jezik → Pretvaranje teksta u govor → Google → Instaliraj glasovne podatke → Hrvatski</b>, pa ponovno otvori Pedalu. Ili ovdje odaberi neki drugi glas.";
+}
+window.speechSynthesis?.addEventListener?.("voiceschanged", () => { hrVoice = null; say.warned = false; if($("#view-settings").classList.contains("active")) fillVoices(); });
 /* message as a toast and, in fullscreen, over the video */
 function notify(msg){
   if(!overlayOn()) toast(msg);
@@ -1211,7 +1237,8 @@ function setMusic(m, play = true){
   f.src = m.id ? `https://www.youtube.com/embed/${m.id}?${q}${m.list ? "&list=" + encodeURIComponent(m.list) : ""}`
     : `https://www.youtube.com/embed/videoseries?list=${encodeURIComponent(m.list)}&${q}`;
   f.allow = "autoplay; encrypted-media"; f.title = "Glazba";
-  fr.append(f); box.hidden = false; box.classList.remove("min"); $("#music-title").textContent = m.title || (m.list ? "Playlista" : "Glazba");
+  fr.append(f); box.hidden = false; box.classList.remove("min");
+  musicOn = play; $("#mus-play").textContent = play ? "⏸" : "▶"; $("#mus-prev").hidden = $("#mus-next").hidden = !m.list; $("#music-title").textContent = m.title || (m.list ? "Playlista" : "Glazba");
   store.set("music", m);
 }
 const MUS_CHIPS = ["Workout mix", "Techno za trening", "Rock za trening", "Drum and bass", "Lo-fi", "Hrvatski hitovi", "Epska motivacija"];
@@ -1242,8 +1269,15 @@ $("#mus-form").onsubmit = e => { e.preventDefault(); const q = $("#mus-url").val
   if(/^https?:|youtu/.test(q)){ $("#mus-url").value = ""; musicFromLink(q); } else searchMusic(q); };
 MUS_CHIPS.forEach(c => { const b = document.createElement("button"); b.type = "button"; b.textContent = c; b.onclick = () => { $("#mus-url").value = c; searchMusic(c); }; $("#mus-chips").append(b); });
 $("#mus-stop").onclick = () => setMusic(null);
+/* the music player takes the same postMessage commands as the video player */
+let musicOn = false;
+function musicCmd(func){ const f = $("#music-frame iframe"); if(f) f.contentWindow.postMessage(JSON.stringify({ event: "command", func, args: [] }), "*"); }
+$("#mus-prev").onclick = () => { musicCmd("previousVideo"); musicOn = true; $("#mus-play").textContent = "⏸"; };
+$("#mus-next").onclick = () => { musicCmd("nextVideo"); musicOn = true; $("#mus-play").textContent = "⏸"; };
+$("#mus-play").onclick = () => { musicOn = !musicOn; musicCmd(musicOn ? "playVideo" : "pauseVideo"); $("#mus-play").textContent = musicOn ? "⏸" : "▶"; };
 $("#mus-min").onclick = () => { const m = $("#music"); m.classList.toggle("min"); $("#mus-min").textContent = m.classList.contains("min") ? "+" : "–"; };
 $("#btn-dash").onclick = () => setDash();
+$("#btn-voice-test").onclick = () => { hrVoice = null; say("Za 10 sekundi: 3 minute na 265 vata, kadenca 90 do 100.", true); };
 
 /* ============ sound + wake lock ============ */
 let actx;
@@ -1816,12 +1850,12 @@ $("#sum-discard").onclick = () => { if(confirm("Odbaciti vožnju bez spremanja?"
 $("#sum-resume").onclick = () => { $("#dlg-summary").close(); start(); };
 
 /* ============ settings ============ */
-function fillSettings(){ const f = $("#settings-form"); f.ftp.value = settings.ftp; f.weight.value = settings.weight; f.beep.checked = settings.beep; f.pauseVideo.checked = settings.pauseVideo; f.autoPause.checked = settings.autoPause; f.ytKey.value = settings.ytKey || ""; f.chainring.value = settings.chainring; f.cog.value = settings.cog; f.maxHr.value = settings.maxHr; f.voice.checked = settings.voice; }
+function fillSettings(){ const f = $("#settings-form"); f.ftp.value = settings.ftp; f.weight.value = settings.weight; f.beep.checked = settings.beep; f.pauseVideo.checked = settings.pauseVideo; f.autoPause.checked = settings.autoPause; f.ytKey.value = settings.ytKey || ""; f.chainring.value = settings.chainring; f.cog.value = settings.cog; f.maxHr.value = settings.maxHr; f.voice.checked = settings.voice; fillVoices(); }
 $("#settings-form").addEventListener("input", e => { const f = e.currentTarget;
   const ftp = +f.ftp.value, wt = +f.weight.value; if(ftp >= 80 && ftp <= 600) settings.ftp = ftp; if(wt >= 30 && wt <= 200) settings.weight = wt;
   settings.beep = f.beep.checked; settings.pauseVideo = f.pauseVideo.checked; settings.autoPause = f.autoPause.checked; settings.ytKey = f.ytKey.value.trim();
   const cr = +f.chainring.value, cg = +f.cog.value; if(cr >= 20 && cr <= 60) settings.chainring = cr; if(cg >= 10 && cg <= 30) settings.cog = cg;
-  const mh = +f.maxHr.value; if(mh >= 120 && mh <= 230) settings.maxHr = mh; settings.voice = f.voice.checked;
+  const mh = +f.maxHr.value; if(mh >= 120 && mh <= 230) settings.maxHr = mh; settings.voice = f.voice.checked; settings.voiceName = f.voiceName.value; hrVoice = null;
   store.set("settings", settings); });
 
 /* ============ navigation + wiring ============ */
@@ -2026,6 +2060,7 @@ window.addEventListener("beforeunload", e => { if(S.started){ e.preventDefault()
   const mu = store.get("music", null); if(mu) setMusic(mu, false);
   fillSettings(); render();
   autoConnect();
+  if("serviceWorker" in navigator && isSecureContext) navigator.serviceWorker.register("/sw.js").catch(e => console.warn("sw", e));
   fetch("/api/intervals").then(r => r.ok ? r.json() : {}).then(j => { icuServer = !!j.serverKey; }).catch(() => {})
     .finally(() => { syncIcu(); renderHistoryIfOpen(); if($("#view-settings").classList.contains("active")) renderIcu(); });
 })();
