@@ -19,6 +19,11 @@ Aplikacija za vožnju na trenažeru u pregledniku, bez instalacije. Cijela aplik
 - **Intervali i dionice:** nakon svakog intervala kratko piše „Interval 4: 264 W od 265 (100%)“. U slobodnoj vožnji i na ruti svakih 5 km piše vrijeme, snaga i puls dionice.
 - **Glasovne najave na hrvatskom:** početak treninga, „Za 10 sekundi: 3 minute na 265 vata“, rezultat intervala i dionice, kraj treninga. Isključuju se u Postavkama.
 - **Trening po pulsu:** treninzi *Z2 po pulsu 60* i *90* sami namještaju snagu da puls ostane na 70% maksimalnog. Snaga se mijenja polako (najviše 1 W u sekundi) jer puls kasni za snagom. Tipke − i + mijenjaju ciljani puls za 2 bpm.
+- **Lagani start, bez „zakucavanja“:**
+  - prije starta i u pauzi trenažer je na ravnoj cesti umjesto ERG-a;
+  - nakon Kreni ili Nastavi otpor ostaje lagan dok kadenca ne prijeđe 55 rpm, a zatim se snaga (ERG) ili nagib (ruta, slobodna vožnja) kroz 12 sekundi vraća na zadano. Brzina na Clicku ili zaslonu se ne mijenja;
+  - ako u ERG-u kadenca padne ispod 45 rpm na 3 sekunde, otpor se spusti i opet postupno vrati;
+  - u treningu po pulsu snaga se ne diže 60 sekundi nakon nastavka, kad je kadenca ispod 70 ni kad pulsmetar ne šalje podatke.
 - Simulator ima i izmišljeni puls koji prati snagu, da se sve može isprobati bez pulsmetra.
 - **Napredak:** forma (CTL/ATL/TSB), tjedni volumen, najbolje snage i kretanje FTP-a.
 - **Sigurnosna kopija:** sve vožnje, treninzi, rute i postavke u jednoj `.json` datoteci.

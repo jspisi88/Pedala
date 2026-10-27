@@ -672,7 +672,7 @@ const S = {
   workout: null, route: null, bias: 1, gear: 10, v: 0,
   running: false, started: false, t: 0, woT: 0, startMs: 0,
   samples: [], dist: 0, lastSeg: -1, idle: 0, autoPaused: false,
-  laps: [], lap: null, hrP: null, hrOff: 0, hrWarned: false,
+  laps: [], lap: null, hrP: null, hrOff: 0, hrWarned: false, hrAt: 0, hrHold: 0, soft: null, lowCad: 0,
 };
 /* virtual gearing: same ratios as Zwift */
 const GEARS = [0.75,0.87,0.99,1.11,1.23,1.38,1.53,1.68,1.86,2.04,2.22,2.40,2.61,2.82,3.03,3.24,3.49,3.74,3.99,4.24,4.54,4.84,5.14,5.49];
@@ -736,11 +736,13 @@ const gradeColor = g => cssVar(g < 2 ? "--z2" : g < 5 ? "--z3" : g < 8 ? "--z4" 
 function onData(d){
   if(d.power != null) S.live.power = d.power;
   if(d.cadence != null) S.live.cadence = d.cadence;
-  if(d.hr && !S.hrm) S.live.hr = d.hr;
+  if(d.hr && !S.hrm) setHr(d.hr);
   S.pBuf.push([performance.now(), S.live.power]);
   const cut = performance.now() - 3000 / (S.trainer instanceof SimTrainer ? SIM_SPEED : 1);
   while(S.pBuf.length && S.pBuf[0][0] < cut) S.pBuf.shift();
 }
+function setHr(v){ S.live.hr = v; S.hrAt = performance.now(); }
+const hrFresh = () => S.live.hr > 0 && performance.now() - (S.hrAt || 0) < 5000 / (S.trainer instanceof SimTrainer ? SIM_SPEED : 1);
 const power3s = () => S.pBuf.length ? Math.round(S.pBuf.reduce((a, x) => a + x[1], 0) / S.pBuf.length) : 0;
 
 function setChip(id, cls, text){ const c = $(id); c.className = "chip " + cls; c.lastElementChild.textContent = text; }
@@ -770,8 +772,11 @@ const hrTarget = s => Math.round(s.hr * settings.maxHr) + S.hrOff;
 function steerHr(c){
   if(!c?.s.hr){ S.hrP = null; return; }
   S.hrP ??= toWatts(S.workout, c.s.lo);
-  if(!S.live.hr){ if(!S.hrWarned){ S.hrWarned = true; notify("Za trening po pulsu spoji pulsmetar"); } return; }
+  if(!hrFresh()){ if(!S.hrWarned){ S.hrWarned = true; notify("Nema pulsa: snaga ostaje ista dok pulsmetar ne proradi"); } return; }   // hold, never climb blind
+  S.hrWarned = false;
+  if(S.soft || S.hrHold > 0){ S.hrHold--; return; }        // just (re)started: heart rate is still catching up
   const err = hrTarget(c.s) - S.live.hr;
+  if(err > 0 && S.live.cadence < 70) return;               // struggling to turn the pedals: do not add load
   if(Math.abs(err) > 2) S.hrP = clamp(S.hrP + clamp(err * .06, -1, 1), .4 * settings.ftp, 1.05 * settings.ftp);
 }
 
@@ -851,10 +856,32 @@ function notify(msg){
   const o = $("#o-msg"); o.textContent = msg; o.hidden = false;
   clearTimeout(notify.t); notify.t = setTimeout(() => { o.hidden = true; }, 6000);
 }
+/* Never leave the rider stuck in a heavy gear:
+   - before the start and while paused the trainer gets a flat road (grade 0) instead of ERG;
+   - after start/resume, and when cadence collapses in ERG, a soft start keeps it light until the
+     pedals turn (55+ rpm), then brings power or grade back to target over SOFT_S seconds.
+   The gear chosen on the Click or the screen is not touched, only the resistance ramps. */
+const SOFT_S = 12, SOFT_RPM = 55;
+const softStart = (k = 0) => { S.soft = { k }; S.lowCad = 0; };
+function softStep(){
+  const s = S.soft; if(!s) return;
+  if(S.live.cadence < 30) s.k = 0;
+  else if(S.live.cadence >= SOFT_RPM && (s.k += 1 / SOFT_S) >= 1) S.soft = null;
+}
+/* ERG only: cadence under 45 rpm for 3 s while below target means the rider is losing the fight */
+function guardCadence(tgt){
+  if(tgt == null || S.soft || !S.running){ S.lowCad = 0; return; }
+  if(S.live.cadence < 45 && power3s() < tgt * .9){ if(++S.lowCad >= 3){ softStart(.3); notify("Kadenca je pala, olakšavam"); } }
+  else S.lowCad = 0;
+}
 function applyControl(){
   if(!S.trainer) return;
-  const tgt = targetNow();
-  if(tgt != null) S.trainer.setPower(tgt); else S.trainer.setGrade(trainerGrade());
+  if(!S.running){ S.trainer.setGrade(0); return; }
+  const tgt = targetNow(), k = S.soft ? S.soft.k : 1;
+  if(tgt != null){
+    if(S.soft && k === 0 && S.live.cadence < 30){ S.trainer.setGrade(0); return; }   // standing start: no ERG yet
+    const lo = Math.min(tgt, .4 * settings.ftp); S.trainer.setPower(lo + (tgt - lo) * k);
+  } else { const g = trainerGrade(); S.trainer.setGrade(g > 0 ? g * k : g); }
 }
 
 function tick(){
@@ -872,6 +899,7 @@ function tick(){
     const c = currentSeg();
     lapTick(c, targetNow());
     steerHr(c);
+    softStep(); guardCadence(targetNow());
     if(c && c.i !== S.lastSeg){ if(S.lastSeg !== -1 && settings.beep) beep(880, .18); S.lastSeg = c.i; }
     if(c && settings.beep && c.left <= 3.5 && c.left > 0.5 && c.i < S.workout.segs.length - 1) beep(520, .07);
     if(S.workout && !c){ finishWorkout(); }
@@ -890,11 +918,11 @@ function start(){
   if(!S.trainer){ $("#dlg-connect").showModal(); return; }
   if(!S.started){ S.started = true; S.startMs = Date.now(); S.samples = []; S.t = 0; S.woT = 0; S.dist = 0; S.v = 0; S.lastSeg = -1; S.laps = []; S.lap = null; S.hrP = null; S.hrWarned = false; }
   S.running = true; S.autoPaused = false; S.idle = 0; if(S.trainer.stopped) S.trainer.stopped = false;
-  applyControl(); startClock(); wakeLock(); yt("playVideo"); render();
+  softStart(); S.hrHold = 60; applyControl(); startClock(); wakeLock(); yt("playVideo"); render();
 }
-function pause(auto){ S.running = false; S.autoPaused = !!auto; if(settings.pauseVideo) yt("pauseVideo"); if(auto) toast("Pauza: nastavi pedalirati za nastavak"); render(); }
-function resume(){ S.running = true; S.autoPaused = false; S.idle = 0; yt("playVideo"); toast("Nastavljam"); }
-function finishWorkout(){ S.running = false; if(settings.beep) beep(660, .4); say(S.route ? "Stigao si na cilj." : "Trening je gotov. Bravo."); openSummary(); }
+function pause(auto){ S.running = false; S.autoPaused = !!auto; S.soft = null; applyControl(); if(settings.pauseVideo) yt("pauseVideo"); if(auto) notify("Pauza: nastavi pedalirati za nastavak"); render(); }
+function resume(){ S.running = true; S.autoPaused = false; S.idle = 0; softStart(); S.hrHold = 60; applyControl(); yt("playVideo"); toast("Nastavljam"); }
+function finishWorkout(){ S.running = false; S.soft = null; applyControl(); if(settings.beep) beep(660, .4); say(S.route ? "Stigao si na cilj." : "Trening je gotov. Bravo."); openSummary(); }
 
 /* ============ metrics ============ */
 function metrics(samples, ftp){
@@ -1102,9 +1130,10 @@ function render(){
   const freeNow = !S.workout || c?.s.free;
   $("#adj-erg").hidden = freeNow; $("#adj-gear").hidden = !freeNow;
   $("#bias").textContent = c?.s.hr ? hrTarget(c.s) + " bpm" : Math.round(S.bias * 100) + "%";
-  $("#bias-lbl").textContent = c?.s.hr ? "Ciljani puls" : "Intenzitet";
+  const soft = S.soft && S.running ? `Lagani start · ${Math.round(S.soft.k * 100)}%` : "";
+  $("#bias-lbl").textContent = soft || (c?.s.hr ? "Ciljani puls" : "Intenzitet");
   $("#gear").textContent = S.gear;
-  $("#gear-sub").textContent = `Brzina · omjer ${GEARS[S.gear - 1].toFixed(2)}`;
+  $("#gear-sub").textContent = soft || `Brzina · omjer ${GEARS[S.gear - 1].toFixed(2)}`;
 
   const ib = $("#interval-box");
   if(S.workout && c){
@@ -1136,7 +1165,7 @@ function renderOverlay(p, tgt, rg){
   const o = (id, v) => { const el = $(id); v = String(v); if(el.textContent !== v) el.textContent = v; };
   o("#o-pw", p);
   const cs = currentSeg();
-  o("#o-tgt", cs?.s.hr ? `puls ${hrTarget(cs.s)} · ${tgt} W` : tgt != null ? `cilj ${tgt} W` : rg != null ? `nagib ${rg.toFixed(1)} %` : "");
+  o("#o-tgt", S.soft && S.running ? "lagani start" : cs?.s.hr ? `puls ${hrTarget(cs.s)} · ${tgt} W` : tgt != null ? `cilj ${tgt} W` : rg != null ? `nagib ${rg.toFixed(1)} %` : "");
   $("#o-tgt").style.color = tgt == null && rg != null ? gradeColor(rg) : "";
   $("#o-iv-box").hidden = $("#interval-box").hidden;
   o("#o-iv-lbl", $("#iv-lbl").textContent); o("#o-iv", $("#iv-cd").textContent); o("#o-iv-next", $("#iv-next").textContent);
@@ -1646,7 +1675,7 @@ $("#c-ble").onclick = async () => {
 $("#c-sim").onclick = async () => { $("#dlg-connect").close(); const t = new SimTrainer(onData, (c, txt) => setChip("#chip-trainer", c, txt)); await t.connect(); S.trainer = t; window.__sim = t; applyControl(); startClock(); };
 $("#chip-hr").onclick = async () => {
   if(S.hrm) return; if(!navigator.bluetooth){ toast("Ovaj preglednik nema Web Bluetooth"); return; }
-  const h = new BleHR(v => S.live.hr = v, hrStatus);
+  const h = new BleHR(setHr, hrStatus);
   try{ await h.connect(); S.hrm = h; }catch(e){ setChip("#chip-hr", "", "Puls"); if(e.name !== "NotFoundError") toast("Spajanje pulsmetra nije uspjelo"); }
 };
 
@@ -1739,7 +1768,7 @@ class ZwiftClick {
 S.clicks = [];
 const clickStatus = (c, txt) => setChip("#chip-click", c, S.clicks.length > 1 && c === "on" ? `Click ×${S.clicks.length}` : txt);
 const trainerStatus = (c, txt) => setChip("#chip-trainer", c, txt);
-const hrStatus = (c, txt) => setChip("#chip-hr", c, txt);
+const hrStatus = (c, txt) => { if(c !== "on") S.live.hr = 0; setChip("#chip-hr", c, txt); };
 function rememberDevice(role, dev){
   const k = store.get("devices", {});
   if(role === "clicks"){ k.clicks = [...new Set([...(k.clicks || []), dev.id])].slice(-4); } else k[role] = dev.id;
@@ -1754,7 +1783,7 @@ async function autoConnect(){
   const k = store.get("devices", {}), clicks = k.clicks || [];
   for(const dev of devs){
     if(dev.id === k.trainer) waitFor(new BleTrainer(onData, trainerStatus), dev, () => !!S.trainer, t => { S.trainer = t; applyControl(); startClock(); toast("Trenažer spojen"); });
-    else if(dev.id === k.hr) waitFor(new BleHR(v => S.live.hr = v, hrStatus), dev, () => !!S.hrm, h => { S.hrm = h; });
+    else if(dev.id === k.hr) waitFor(new BleHR(setHr, hrStatus), dev, () => !!S.hrm, h => { S.hrm = h; });
     else if(clicks.includes(dev.id)) waitFor(new ZwiftClick(clickStatus), dev, () => S.clicks.some(z => z.device.id === dev.id), z => { S.clicks.push(z); clickStatus("on", "Click"); });
   }
 }
