@@ -119,11 +119,13 @@ a.btn{display:inline-block;color:inherit;text-decoration:none}
 .vid-tools{position:absolute;right:10px;top:10px;display:flex;gap:6px;z-index:2}
 .vid-tools .btn{background:rgba(21,27,38,.78);backdrop-filter:blur(6px)}
 /* metrics over the video in fullscreen */
-.ovl{display:none;position:absolute;left:0;right:0;bottom:0;z-index:2;pointer-events:none;align-items:flex-end;flex-wrap:wrap;gap:10px;padding:48px 18px max(16px,env(safe-area-inset-bottom));background:linear-gradient(transparent,rgba(8,11,17,.85) 60%)}
+.ovl{display:none;position:absolute;left:0;right:0;bottom:0;z-index:3;pointer-events:none;align-items:flex-end;flex-wrap:wrap;gap:10px;padding:0 18px max(16px,env(safe-area-inset-bottom))}
+.o-prof{display:none;position:absolute;left:0;bottom:0;width:100%;height:max(140px,26vh);z-index:2;pointer-events:none;background:linear-gradient(rgba(8,11,17,.25),rgba(8,11,17,.82))}
+.stage:fullscreen .o-prof{display:block}
 .stage:fullscreen{background:#000}
 .stage:fullscreen .ovl{display:flex}
 .stage:fullscreen #btn-vid-change{display:none}
-.ovl>div{background:rgba(21,27,38,.72);border-radius:12px;padding:6px 14px 8px}
+.ovl>div{background:rgba(21,27,38,.62);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);border-radius:12px;padding:6px 14px 8px}
 .ovl small{display:block;color:var(--muted);font-size:14px;font-weight:500}
 .ovl b{font:700 46px/1 var(--num);font-variant-numeric:tabular-nums}
 .ovl i{font:600 18px/1 var(--num);font-style:normal;color:var(--muted);margin-left:4px}
@@ -135,7 +137,7 @@ a.btn{display:inline-block;color:inherit;text-decoration:none}
 .o-paused{position:absolute;left:50%;top:40%;transform:translate(-50%,-50%);z-index:2;pointer-events:none;background:rgba(21,27,38,.82);border-radius:14px;padding:10px 22px;font:700 40px/1 var(--num);display:none}
 .stage:fullscreen .o-paused:not([hidden]){display:block}
 @media (max-width: 900px), (max-height: 520px){
-  .ovl{flex-wrap:nowrap;gap:6px;padding:30px 10px max(10px,env(safe-area-inset-bottom))}
+  .ovl{flex-wrap:nowrap;gap:6px;padding:0 10px max(10px,env(safe-area-inset-bottom))}
   .ovl>div{padding:4px 10px 6px} .ovl small{font-size:12px} .ovl i{font-size:14px}
   .ovl b{font-size:28px} .ovl .o-pw b{font-size:52px} .ovl .o-pw i{font-size:20px} .ovl .o-tgt{font-size:18px}
   .ovl #o-iv-next{display:none}
@@ -285,6 +287,7 @@ dialog p{color:var(--muted);margin:0 0 14px}
     </section>
 
     <section class="stage" id="stage">
+      <canvas class="o-prof" id="o-prof" aria-hidden="true"></canvas>
       <div class="ovl" id="ovl" aria-hidden="true">
         <div class="o-pw"><b id="o-pw">0</b><i>W</i><span class="o-tgt" id="o-tgt"></span></div>
         <div class="o-iv" id="o-iv-box"><small id="o-iv-lbl"></small><b id="o-iv">0:00</b><small id="o-iv-next"></small></div>
@@ -1010,6 +1013,7 @@ function renderOverlay(p, tgt, rg){
   o("#o-x-lbl", S.route ? "Udaljenost" : "Brzina");
   o("#o-x", S.route ? (S.dist / 1000).toFixed(1) : (S.live.speed || 0).toFixed(1)); o("#o-x-unit", S.route ? "km" : "km/h");
   $("#o-paused").hidden = !(S.started && !S.running);
+  drawProfile($("#o-prof"));
 }
 
 function sizeCanvas(cv){ const r = cv.getBoundingClientRect(), d = devicePixelRatio || 1;
@@ -1028,8 +1032,19 @@ function drawWorkoutBlocks(g, w, W, H, scaleMax, alpha){
   g.globalAlpha = 1;
 }
 
-function drawProfile(){
-  const cv = $("#profile"); const [g, W, H] = sizeCanvas(cv); g.clearRect(0, 0, W, H);
+/* heart rate drawn over a profile; pts = [[x, bpm]], 60–200 bpm fills the height, gaps where there is no reading */
+const HR_LO = 60, HR_HI = 200;
+function drawHr(g, pts, H, width){
+  g.strokeStyle = cssVar("--z6"); g.lineWidth = width; g.lineJoin = "round"; g.beginPath(); let on = false, any = false;
+  for(const [x, hr] of pts){ if(!hr){ on = false; continue; } const y = H - clamp((hr - HR_LO) / (HR_HI - HR_LO), 0, 1) * H; on ? g.lineTo(x, y) : g.moveTo(x, y); on = any = true; }
+  g.stroke();
+  return any;
+}
+/* workout blocks, route elevation or recent power, with power and heart-rate traces.
+   Draws the dock profile by default; the fullscreen overlay passes its own, taller canvas. */
+function drawProfile(cv = $("#profile")){
+  const [g, W, H] = sizeCanvas(cv); g.clearRect(0, 0, W, H);
+  const big = cv.id === "o-prof", lw = big ? 2.5 : 1.5;
   const w = S.workout;
   if(S.route && !w){
     const r = S.route, n = r.ele.length, lo = r.minEle - (r.maxEle - r.minEle) * .08, span = (r.maxEle - lo) * 1.06 || 1;
@@ -1041,9 +1056,10 @@ function drawProfile(){
     g.fillStyle = "rgba(21,27,38,.55)"; g.fillRect(0, 0, cx, H);
     g.strokeStyle = cssVar("--text"); g.lineWidth = 1.5; g.beginPath();
     for(let i = 0; i < n; i += Math.max(1, Math.floor(n / W))){ const x = X(i * STEP), y = Y(r.ele[i]); i ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke();
-    g.fillStyle = cssVar("--text"); g.beginPath(); g.arc(cx, Y(eleAt(r, S.dist)), 5, 0, 7); g.fill();
+    drawHr(g, S.samples.map(s => [X(s[5]), s[3]]), H, lw);
+    g.fillStyle = cssVar("--text"); g.beginPath(); g.arc(cx, Y(eleAt(r, S.dist)), big ? 7 : 5, 0, 7); g.fill();
     g.fillStyle = cssVar("--muted"); g.font = "500 12px Barlow, system-ui";
-    g.fillText(`${Math.round(r.minEle)}–${Math.round(r.maxEle)} m`, 2, 12);
+    g.fillText(`${Math.round(r.minEle)}–${Math.round(r.maxEle)} m`, big ? W - 90 : 2, big ? 18 : 12);
     return;
   }
   if(w){
@@ -1055,10 +1071,11 @@ function drawProfile(){
     g.fillStyle = "rgba(21,27,38,.55)"; g.fillRect(0, 0, cx, H);
     // actual power trace mapped to workout time
     if(S.samples.length > 1){
-      g.strokeStyle = cssVar("--text"); g.lineWidth = 1.5; g.beginPath();
+      g.strokeStyle = cssVar("--text"); g.lineWidth = lw; g.beginPath();
       const off = S.t - S.woT; let first = true;
       for(const s of S.samples){ const wt = s[0] - off; if(wt < 0) continue; const x = wt / tot * W, y = H - Math.min(1, s[1] / settings.ftp / maxF) * H; first ? g.moveTo(x, y) : g.lineTo(x, y); first = false; }
       g.stroke();
+      drawHr(g, S.samples.filter(s => s[0] >= off).map(s => [(s[0] - off) / tot * W, s[3]]), H, lw);
     }
     g.fillStyle = cssVar("--text"); g.fillRect(cx - 1, 0, 2, H);
     // FTP line
@@ -1069,6 +1086,7 @@ function drawProfile(){
     g.strokeStyle = "rgba(233,237,243,.25)"; g.setLineDash([4, 4]); g.beginPath(); g.moveTo(0, fy); g.lineTo(W, fy); g.stroke(); g.setLineDash([]);
     const sm = S.samples.slice(-win);
     for(const s of sm){ const x = (s[0] - (S.t - win)) / win * W, f = s[1] / settings.ftp; g.fillStyle = zoneColor(f); g.fillRect(x, H - Math.min(1, f / maxF) * H, Math.max(1, W / win + .5), H); }
+    drawHr(g, sm.map(s => [(s[0] - (S.t - win)) / win * W, s[3]]), H, lw);
     if(!sm.length){ g.fillStyle = cssVar("--muted"); g.font = "500 14px Barlow, system-ui"; g.fillText("Ovdje se crta snaga zadnjih 20 minuta", 0, H / 2); }
   }
 }
