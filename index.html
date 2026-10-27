@@ -307,7 +307,7 @@ dialog.wide .sum{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}
       <div class="ovl" id="ovl" aria-hidden="true">
         <div class="o-pw"><b id="o-pw">0</b><i>W</i><span class="o-tgt" id="o-tgt"></span></div>
         <div class="o-iv" id="o-iv-box"><small id="o-iv-lbl"></small><b id="o-iv">0:00</b><small id="o-iv-next"></small></div>
-        <div><small>Kadenca</small><b id="o-cad">–</b><i>rpm</i></div>
+        <div class="o-hrb" id="o-cad-box"><small id="o-cad-lbl">Kadenca</small><b id="o-cad">–</b><i>rpm</i></div>
         <div class="o-hrb" id="o-hr-box"><small id="o-hr-lbl">Puls</small><b id="o-hr">–</b><i>bpm</i></div>
         <div><small>Vrijeme</small><b id="o-time">0:00</b></div>
         <div><small id="o-x-lbl">Brzina</small><b id="o-x">0.0</b><i id="o-x-unit">km/h</i></div>
@@ -612,24 +612,49 @@ class BleHR {
 
 /* ============ workouts ============ */
 // segment: { d: seconds, lo, hi, free?, hr? }  lo/hi = fraction of FTP, or watts when workout.abs;
-// hr = target heart rate as a fraction of max HR: power is then steered to hold it, starting from lo
+// hr = target heart rate as a fraction of max HR: power is then steered to hold it, starting from lo;
+// cad = target cadence [lo, hi] rpm (hi 999 = "or more"); note = cue shown on screen and spoken.
+// cat groups the list: base, drill, hr, test (imported workouts go under "Uvezeni")
+const CAD_ANY = 999;
 const BUILTIN = [
-  { id:"b-endurance", name:"Izdržljivost 60", desc:"Mirna Z2 vožnja s par kratkih tempo dionica.", segs:[
+  { id:"b-endurance", cat:"base", name:"Izdržljivost 60", desc:"Mirna Z2 vožnja s par kratkih tempo dionica.", segs:[
     {d:600,lo:.45,hi:.68}, {d:900,lo:.68,hi:.68}, {d:180,lo:.82,hi:.82}, {d:720,lo:.68,hi:.68}, {d:180,lo:.82,hi:.82}, {d:720,lo:.68,hi:.68}, {d:300,lo:.6,hi:.42}]},
-  { id:"b-ss", name:"Sweet spot 3×12", desc:"Klasika za podizanje FTP-a: tri bloka na 88–92%.", segs:[
+  { id:"b-ss", cat:"base", name:"Sweet spot 3×12", desc:"Klasika za podizanje FTP-a: tri bloka na 88–92%.", segs:[
     {d:600,lo:.45,hi:.75}, {d:720,lo:.9,hi:.9}, {d:300,lo:.55,hi:.55}, {d:720,lo:.9,hi:.9}, {d:300,lo:.55,hi:.55}, {d:720,lo:.9,hi:.9}, {d:480,lo:.6,hi:.4}]},
-  { id:"b-vo2", name:"VO2max 5×3", desc:"Pet teških trominutnih intervala na 115%.", segs:(() => { const s=[{d:600,lo:.45,hi:.75},{d:60,lo:1,hi:1},{d:240,lo:.55,hi:.55}];
+  { id:"b-vo2", cat:"base", name:"VO2max 5×3", desc:"Pet teških trominutnih intervala na 115%.", segs:(() => { const s=[{d:600,lo:.45,hi:.75},{d:60,lo:1,hi:1},{d:240,lo:.55,hi:.55}];
       for(let i=0;i<5;i++){ s.push({d:180,lo:1.15,hi:1.15}); s.push({d:180,lo:.5,hi:.5}); } s.push({d:420,lo:.6,hi:.4}); return s; })()},
-  { id:"b-thr", name:"Prag 2×20", desc:"Dva duga bloka na 95–100%. Teško, ali isplati se.", segs:[
+  { id:"b-thr", cat:"base", name:"Prag 2×20", desc:"Dva duga bloka na 95–100%. Teško, ali isplati se.", segs:[
     {d:600,lo:.45,hi:.75}, {d:1200,lo:.96,hi:.96}, {d:480,lo:.55,hi:.55}, {d:1200,lo:.96,hi:.96}, {d:420,lo:.6,hi:.4}]},
-  { id:"b-hr60", name:"Z2 po pulsu 60", desc:"Snaga se sama namješta da puls ostane na 70% maksimalnog. Treba pulsmetar.", segs:[
+  { id:"b-hr60", cat:"hr", name:"Z2 po pulsu 60", desc:"Snaga se sama namješta da puls ostane na 70% maksimalnog. Treba pulsmetar.", segs:[
     {d:600,lo:.45,hi:.65}, {d:2700,lo:.65,hi:.65,hr:.7}, {d:300,lo:.55,hi:.42}]},
-  { id:"b-hr90", name:"Z2 po pulsu 90", desc:"Duga vožnja na 70% maksimalnog pulsa, snaga se namješta sama. Treba pulsmetar.", segs:[
+  { id:"b-hr90", cat:"hr", name:"Z2 po pulsu 90", desc:"Duga vožnja na 70% maksimalnog pulsa, snaga se namješta sama. Treba pulsmetar.", segs:[
     {d:600,lo:.45,hi:.65}, {d:4500,lo:.65,hi:.65,hr:.7}, {d:300,lo:.55,hi:.42}]},
-  { id:"b-ramp", name:"Ramp test", desc:"Svaku minutu +20 W dok ne možeš više. FTP = 75% najbolje minute. Kad odustaneš, pritisni Završi.", abs:true, test:"ramp", segs:(() => {
+  // pedal drills, after Zwift's "Pedalling drills" and GC Coaching cadence sessions
+  { id:"d-spin", cat:"drill", name:"Spin-ups", desc:"Osam naleta visoke kadence u laganom otporu. Sjedi mirno, bez poskakivanja na sjedalu.", segs:(() => {
+      const s = [{d:600,lo:.45,hi:.6,cad:[85,95]}];
+      for(let i = 0; i < 8; i++){ s.push({d:30,lo:.55,hi:.55,cad:[110,CAD_ANY],note:"Visoka kadenca, mirno sjedi"}); s.push({d:90,lo:.55,hi:.55,cad:[85,95]}); }
+      s.push({d:300,lo:.55,hi:.42}); return s; })()},
+  { id:"d-hilo", cat:"drill", name:"Visoka i niska kadenca", desc:"Minuta tempa na 60–70 rpm pa minuta na 90–105 rpm, dvije serije po pet. Misli na okrugao pokret: guraj, povuci natrag, podigni.", segs:(() => {
+      const s = [{d:600,lo:.45,hi:.7,cad:[85,95]}];
+      for(let k = 0; k < 2; k++){ for(let i = 0; i < 5; i++){ s.push({d:60,lo:.8,hi:.8,cad:[60,70],note:"Niska kadenca"}); s.push({d:60,lo:.65,hi:.65,cad:[90,105],note:"Visoka kadenca"}); } s.push({d:300,lo:.5,hi:.5}); }
+      s.push({d:300,lo:.5,hi:.42}); return s; })()},
+  { id:"d-torque", cat:"drill", name:"Snaga na niskoj kadenci", desc:"Tri bloka po 6 minuta na 85% FTP-a s 55–65 rpm, za snagu u nogama. Gornji dio tijela miran.", segs:(() => {
+      const s = [{d:600,lo:.45,hi:.7,cad:[85,95]}];
+      for(let i = 0; i < 3; i++){ s.push({d:360,lo:.85,hi:.85,cad:[55,65],note:"Niska kadenca, teški gaz"}); s.push({d:240,lo:.6,hi:.6,cad:[90,100]}); }
+      s.push({d:300,lo:.55,hi:.42}); return s; })()},
+  { id:"d-pyr", cat:"drill", name:"Kadencna piramida", desc:"Lagana snaga, a kadenca raste od 80 do 120+ rpm pa natrag. Traži najvišu kadencu bez poskakivanja.", segs:(() => {
+      const s = [{d:600,lo:.45,hi:.6,cad:[85,95]}], steps = [[120,80,90],[120,90,100],[60,100,110],[60,110,120],[30,120,CAD_ANY],[60,100,110],[120,85,95]];
+      for(let k = 0; k < 2; k++){ for(const [d, lo, hi] of steps) s.push({d,lo:.6,hi:.6,cad:[lo,hi]}); s.push({d:180,lo:.5,hi:.5}); }
+      s.push({d:300,lo:.5,hi:.42}); return s; })()},
+  { id:"d-leg", cat:"drill", name:"Jedna noga", desc:"Izvuci jednu nogu iz pedale (odmori je na trenažeru ili stolčiću) i vrti bez mrtve točke, pa druga noga. Snaga je niska namjerno.", segs:(() => {
+      const s = [{d:600,lo:.45,hi:.6,cad:[85,95]}];
+      for(let i = 0; i < 4; i++){ s.push({d:45,lo:.4,hi:.4,cad:[70,85],note:"Samo lijeva noga"}); s.push({d:45,lo:.4,hi:.4,cad:[70,85],note:"Samo desna noga"}); s.push({d:120,lo:.55,hi:.55,cad:[85,95],note:"Obje noge"}); }
+      s.push({d:300,lo:.5,hi:.42}); return s; })()},
+  { id:"b-ramp", cat:"test", name:"Ramp test", desc:"Svaku minutu +20 W dok ne možeš više. FTP = 75% najbolje minute. Kad odustaneš, pritisni Završi.", abs:true, test:"ramp", segs:(() => {
       const s=[{d:300,lo:100,hi:100}]; for(let w=120; w<=700; w+=20) s.push({d:60,lo:w,hi:w}); return s; })()},
 ];
 
+const cadOf = v => isNaN(v) || v <= 0 ? undefined : [v - 5, v + 5];   // Zwift gives one number; allow ±5 rpm
 function parseZwo(text, fileName){
   const doc = new DOMParser().parseFromString(text, "application/xml");
   if(doc.querySelector("parsererror")) throw new Error("Neispravan XML");
@@ -640,16 +665,17 @@ function parseZwo(text, fileName){
     const t = el.tagName.toLowerCase(); const d = num(el, "Duration");
     if(t === "warmup" || t === "cooldown" || t === "ramp"){
       let lo = num(el,"PowerLow"), hi = num(el,"PowerHigh"); if(isNaN(lo)) lo = hi; if(isNaN(hi)) hi = lo;
-      if(d > 0 && !isNaN(lo)) segs.push({ d, lo, hi });
+      if(d > 0 && !isNaN(lo)) segs.push({ d, lo, hi, cad: cadOf(num(el, "Cadence")) });
     } else if(t === "steadystate" || t === "solidstate"){
       let p = num(el, "Power"); if(isNaN(p)){ const lo = num(el,"PowerLow"), hi = num(el,"PowerHigh"); p = (lo + hi) / 2; }
-      if(d > 0 && !isNaN(p)) segs.push({ d, lo: p, hi: p });
+      if(d > 0 && !isNaN(p)) segs.push({ d, lo: p, hi: p, cad: cadOf(num(el, "Cadence")) });
     } else if(t === "intervalst"){
       const n = num(el,"Repeat") || 1, on = num(el,"OnDuration"), off = num(el,"OffDuration");
       let onP = num(el,"OnPower"), offP = num(el,"OffPower");
       if(isNaN(onP)) onP = (num(el,"PowerOnLow") + num(el,"PowerOnHigh")) / 2;
       if(isNaN(offP)) offP = (num(el,"PowerOffLow") + num(el,"PowerOffHigh")) / 2;
-      for(let i = 0; i < n; i++){ if(on > 0) segs.push({ d: on, lo: onP, hi: onP }); if(off > 0) segs.push({ d: off, lo: offP, hi: offP }); }
+      const cOn = cadOf(num(el, "Cadence")), cOff = cadOf(num(el, "CadenceResting"));
+      for(let i = 0; i < n; i++){ if(on > 0) segs.push({ d: on, lo: onP, hi: onP, cad: cOn }); if(off > 0) segs.push({ d: off, lo: offP, hi: offP, cad: cOff }); }
     } else if(t === "freeride" || t === "maxeffort"){
       if(d > 0) segs.push({ d, lo: .5, hi: .5, free: true });
     }
@@ -725,6 +751,35 @@ function parseGpx(text, fileName){
     len: Math.round(len), gain: Math.round(gain), minEle: Math.min(...sm), maxEle: Math.max(...sm), ele: sm, lat, lon };
 }
 const routes = () => store.get("routes", []);
+/* Built-in climbs. No GPS track could be fetched, so each is a virtual route built from published
+   section gradients: start height and [km, %] sections. A gentle, repeatable wobble keeps it from riding
+   like a ramp; the total is rescaled to the published gain. Rides on them are saved without a map. */
+const CLIMBS = [
+  { id: "c-sljeme", name: "Sljeme", from: "Cener, Sljemenska cesta", start: 470, secs: [[2, 4.5], [3, 5.8], [2, 5], [2.9, 5.6]],
+    desc: "Zagrebački klasik: oko 9,9 km i 530 m, ujednačeno oko 5%." },
+  { id: "c-ucka", name: "Učka – Vojak", from: "Poklon", start: 925, secs: [[2, 6], [3, 7.5], [2, 6.6]],
+    desc: "Od Poklona do vidikovca Vojak: 7 km, oko 475 m, cesta se jednoliko penje." },
+  { id: "c-biokovo", name: "Biokovo – Sveti Jure", from: "ulaz u park", start: 365, secs: [[14.5, 5.76], [1.5, 1], [7, 7.8]],
+    desc: "23 km i gotovo 1400 m. Kod Skywalka se kratko izravna, pa strmi završetak do vrha." },
+  { id: "c-alpe", name: "Alpe d'Huez", from: "Bourg d'Oisans", start: 744, secs: [[.5, 3], [2, 10.5], [10, 8.3], [1.8, 3.6]],
+    desc: "21 serpentina, 1120 m. Prva dva kilometra su najstrmija (preko 10%), kraj je blaži." },
+  { id: "c-ventoux", name: "Mont Ventoux", from: "Bédoin", start: 312, secs: [[1, 2.5], [3.6, 4.9], [.5, 6], [9.5, 9.4], [1.2, 5], [4.9, 7.9]],
+    desc: "Div Provanse: blagi početak, zatim 10 km šume oko 9–10%, predah kod Chalet Reynarda i goli vrh." },
+  { id: "c-stelvio", name: "Passo dello Stelvio", from: "Prato allo Stelvio", start: 950, secs: [[7, 5.7], [17.3, 8.15]],
+    desc: "48 serpentina do 2758 m: 24,3 km i oko 1800 m. Nakon 7 km postaje strmiji." },
+];
+function climbRoute(c){
+  const len = Math.round(c.secs.reduce((a, x) => a + x[0], 0) * 1000), n = Math.floor(len / STEP) + 1, raw = [c.start];
+  const base = d => { let a = 0; for(const [km, g] of c.secs){ a += km * 1000; if(d < a) return g; } return c.secs.at(-1)[1]; };
+  for(let i = 1; i < n; i++){ const d = i * STEP; raw.push(raw[i - 1] + STEP * (base(d) + 1.1 * Math.sin(d / 310 + c.start) + .6 * Math.sin(d / 97)) / 100); }
+  const want = c.secs.reduce((a, [km, g]) => a + km * 10 * g, 0), got = raw.at(-1) - c.start;
+  const ele = raw.map(e => +(c.start + (e - c.start) * want / got).toFixed(1));
+  let gain = 0; for(let i = 1; i < n; i++) if(ele[i] > ele[i - 1]) gain += ele[i] - ele[i - 1];
+  return { id: c.id, name: `${c.name} (${c.from})`, desc: c.desc, builtin: true, len: (n - 1) * STEP, gain: Math.round(gain),
+    minEle: Math.min(...ele), maxEle: Math.max(...ele), ele, lat: null, lon: null };
+}
+const BUILTIN_ROUTES = CLIMBS.map(climbRoute);
+const allRoutes = () => [...BUILTIN_ROUTES, ...routes()];
 function eleAt(r, d){ const x = clamp(d / STEP, 0, r.ele.length - 1), i = Math.floor(x), f = x - i; return r.ele[i] + ((r.ele[i+1] ?? r.ele[i]) - r.ele[i]) * f; }
 function posAt(r, d){ const x = clamp(d / STEP, 0, r.lat.length - 1), i = Math.floor(x), f = x - i, n = Math.min(i + 1, r.lat.length - 1);
   return [r.lat[i] + (r.lat[n] - r.lat[i]) * f, r.lon[i] + (r.lon[n] - r.lon[i]) * f]; }
@@ -767,6 +822,9 @@ function targetNow(){
   return Math.round(toWatts(S.workout, segFrac(S.workout, c.s, c.into / c.s.d)) * S.bias);
 }
 const hrTarget = s => Math.round(s.hr * settings.maxHr) + S.hrOff;
+const cadTxt = ([lo, hi]) => hi >= CAD_ANY ? `${lo}+` : `${lo}–${hi}`;
+const cadIn = (rpm, [lo, hi]) => rpm >= lo - 2 && rpm <= hi + 2;
+const cadSpeech = ([lo, hi]) => hi >= CAD_ANY ? `kadenca ${lo} i više` : `kadenca ${lo} do ${hi}`;
 /* heart-rate segment: nudge the ERG power toward the target heart rate. Heart rate lags power by
    a minute or so, hence the slow correction (max 1 W per second) and a ±2 bpm dead band. */
 function steerHr(c){
@@ -785,12 +843,14 @@ function steerHr(c){
    An open lap sums power, heart rate and target each second; closing it gives the averages and,
    for power or heart-rate targets, how close the ride came (score in %, hit = within ±5%). */
 const LAP_KM = 5;
-function lapOpen(extra){ S.lap = { t0: S.t, d0: S.dist, n: 0, p: 0, hr: 0, hrN: 0, tgt: 0, tgtN: 0, ...extra }; }
+function lapOpen(extra){ S.lap = { t0: S.t, d0: S.dist, n: 0, p: 0, c: 0, hr: 0, hrN: 0, tgt: 0, tgtN: 0, ...extra }; }
 function lapSummary(l){
   const lap = { name: l.name, kind: l.kind, t0: l.t0, dur: l.n, km: +((S.dist - l.d0) / 1000).toFixed(2), avgP: l.n ? Math.round(l.p / l.n) : 0,
+    avgCad: l.n ? Math.round(l.c / l.n) : 0, cadTgt: l.cadTgt || null, note: l.note || null,
     avgHr: l.hrN ? Math.round(l.hr / l.hrN) : 0, tgt: l.tgtN && (l.kind === "power" || l.kind === "hr") ? Math.round(l.tgt / l.tgtN) : null };
   const actual = l.kind === "hr" ? lap.avgHr : lap.avgP;
   if(lap.tgt && actual){ lap.score = Math.round(actual / lap.tgt * 100); lap.hit = Math.abs(lap.score - 100) <= 5; }
+  if(lap.cadTgt) lap.cadHit = cadIn(lap.avgCad, lap.cadTgt);
   return lap;
 }
 function lapClose(){ const l = S.lap; S.lap = null; if(!l?.n) return null; const lap = lapSummary(l); S.laps.push(lap); return lap; }
@@ -799,7 +859,7 @@ function lapTick(c, tgt){
   if(S.workout && c){
     if(!S.lap || S.lap.seg !== c.i){
       const done = lapClose(); if(done) lapResult(done);
-      lapOpen({ seg: c.i, name: `Interval ${c.i + 1}`, kind: c.s.free ? "free" : c.s.hr ? "hr" : "power" });
+      lapOpen({ seg: c.i, name: `Interval ${c.i + 1}`, kind: c.s.free ? "free" : c.s.hr ? "hr" : "power", cadTgt: c.s.cad, note: c.s.note });
       if(c.i === 0 && S.t <= 1) say(`Kreće trening. ${segSpeech(c.s)}.`);
     }
     // next segment in 10 seconds
@@ -810,12 +870,20 @@ function lapTick(c, tgt){
     else if(S.dist - S.lap.d0 >= LAP_KM * 1000){ lapResult(lapClose()); lapOpen({ name: `Dionica ${S.laps.length + 1}`, kind: "dist" }); }
   }
   const l = S.lap; if(!l) return;
-  l.n++; l.p += S.live.power; if(S.live.hr){ l.hr += S.live.hr; l.hrN++; }
+  l.n++; l.p += S.live.power; l.c += S.live.cadence; if(S.live.hr){ l.hr += S.live.hr; l.hrN++; }
   const t = l.kind === "hr" ? hrTarget(c.s) : l.kind === "power" ? tgt : null;
   if(t != null){ l.tgt += t; l.tgtN++; }
 }
 function lapResult(lap){
   if(!lap) return;
+  if(lap.cadTgt && S.workout?.cat === "drill"){
+    // drills: report the cadence of the drill parts, stay quiet on recoveries
+    if(lap.cadTgt[0] >= 100 || lap.cadTgt[1] <= 70){
+      notify(`${lap.name}: ${lap.avgCad} rpm (cilj ${cadTxt(lap.cadTgt)})`);
+      say(`Prosječna kadenca ${lap.avgCad}.`);
+    }
+    return;
+  }
   if(lap.kind === "dist"){
     notify(`${lap.name}: ${fmtTime(lap.dur)} · ${lap.avgP} W${lap.avgHr ? " · " + lap.avgHr + " bpm" : ""}`);
     say(`${Math.round(S.dist / 1000)} ${plural(Math.round(S.dist / 1000), "kilometar", "kilometra", "kilometara")}. Zadnjih ${LAP_KM} za ${sayDur(lap.dur)}, prosjek ${lap.avgP} ${plural(lap.avgP, "vat", "vata", "vata")}.`);
@@ -834,6 +902,10 @@ function sayDur(sec){
   return [mm, ss].filter(Boolean).join(" i ");
 }
 function segSpeech(sg){
+  const cue = sg.note ? sg.note + ". " : "", cad = sg.cad ? ", " + cadSpeech(sg.cad) : "";
+  return cue + segSpeechPower(sg) + cad;
+}
+function segSpeechPower(sg){
   const w = S.workout, d = sayDur(sg.d);
   if(sg.free) return `${d} slobodno`;
   if(sg.hr) return `${d} na pulsu ${hrTarget(sg)}`;
@@ -894,7 +966,7 @@ function tick(){
     const v = erg ? (S.v = speedFromPower(S.live.power)) : stepSpeed(S.live.power, roadGrade(), dt);
     S.live.speed = v * 3.6; S.dist += v * dt;
     const smp = [S.t, Math.round(S.live.power), Math.round(S.live.cadence), S.live.hr || 0, Math.round(v * 100), Math.round(S.dist)];
-    if(S.route){ const [la, lo] = posAt(S.route, S.dist); smp.push(la, lo, Math.round(eleAt(S.route, S.dist) * 10) / 10); }
+    if(S.route){ const [la, lo] = S.route.lat ? posAt(S.route, S.dist) : [NaN, NaN]; smp.push(la, lo, Math.round(eleAt(S.route, S.dist) * 10) / 10); }
     S.samples.push(smp);
     const c = currentSeg();
     lapTick(c, targetNow());
@@ -965,7 +1037,8 @@ function encodeFit(ride){
   const sc = 2147483648 / 180;
   if(ride.route){
     def(2, 20, [[253,"u32"],[0,"s32"],[1,"s32"],[2,"u16"],[7,"u16"],[4,"u8"],[3,"u8"],[6,"u16"],[5,"u32"]]);
-    for(const s of ride.samples) msg(2, [st + s[0], s[6] * sc, s[7] * sc, (s[8] + 500) * 5, s[1], s[2], nn(s[3]), s[4] * 10, s[5] * 100]);
+    const deg = v => v == null || !isFinite(v) ? NaN : v * sc;          // built-in climbs have no GPS
+    for(const s of ride.samples) msg(2, [st + s[0], deg(s[6]), deg(s[7]), (s[8] + 500) * 5, s[1], s[2], nn(s[3]), s[4] * 10, s[5] * 100]);
   } else {
     def(2, 20, [[253,"u32"],[7,"u16"],[4,"u8"],[3,"u8"],[6,"u16"],[5,"u32"]]);
     for(const s of ride.samples) msg(2, [st + s[0], s[1], s[2], nn(s[3]), s[4] * 10, s[5] * 100]);
@@ -1117,7 +1190,9 @@ function render(){
   $("#tgt").style.color = rg != null && tgt == null ? gradeColor(rg) : "";
   $("#tgt-lbl").textContent = S.route && tgt == null ? "Nagib" : !S.workout ? "Slobodna vožnja" : c?.s.free ? "Slobodno" : c?.s.hr ? `Cilj · puls ${hrTarget(c.s)}` : "Cilj";
   $("#pw-delta").textContent = tgt != null && S.running ? (p - tgt > 0 ? "+" : "") + (p - tgt) : "";
-  $("#cad").innerHTML = (S.live.cadence ? Math.round(S.live.cadence) : "–") + "<i>rpm</i>";
+  const ct = S.workout && c?.s.cad;
+  $("#cad").innerHTML = (S.live.cadence ? Math.round(S.live.cadence) : "–") + `<i>rpm${ct ? " · " + cadTxt(ct) : ""}</i>`;
+  $("#cad").style.color = ct && S.live.cadence ? cssVar(cadIn(S.live.cadence, ct) ? "--z3" : "--z5") : "";
   const hz = hrZone(S.live.hr);
   $("#hr").innerHTML = (S.live.hr ? S.live.hr : "–") + `<i>bpm${hz >= 0 ? " · " + HR_ZONES[hz][2] : ""}</i>`;
   $("#hr").style.color = hz >= 0 ? cssVar(HR_ZONES[hz][1]) : "";
@@ -1138,10 +1213,10 @@ function render(){
   const ib = $("#interval-box");
   if(S.workout && c){
     ib.hidden = false;
-    $("#iv-lbl").textContent = `Interval ${c.i + 1} od ${S.workout.segs.length}`;
+    $("#iv-lbl").textContent = `Interval ${c.i + 1} od ${S.workout.segs.length}${c.s.note ? " · " + c.s.note : ""}`;
     $("#iv-cd").textContent = fmtTime(c.left);
     const n = S.workout.segs[c.i + 1];
-    $("#iv-next").textContent = n ? `Sljedeće: ${fmtTime(n.d)} ${n.free ? "slobodno" : n.hr ? "na pulsu " + hrTarget(n) : "na " + Math.round(toWatts(S.workout, (n.lo + n.hi) / 2) * S.bias) + " W"}` : "Zadnji interval";
+    $("#iv-next").textContent = n ? `Sljedeće: ${fmtTime(n.d)} ${n.free ? "slobodno" : n.hr ? "na pulsu " + hrTarget(n) : "na " + Math.round(toWatts(S.workout, (n.lo + n.hi) / 2) * S.bias) + " W"}${n.cad ? " · " + cadTxt(n.cad) + " rpm" : ""}${n.note ? " · " + n.note : ""}` : "Zadnji interval";
     $("#wo-left").textContent = S.workout.test ? "Vozi dok možeš, onda Završi" : "Još " + fmtTime(totalDur(S.workout) - S.woT);
   } else if(S.route){
     const r = S.route, left = Math.max(0, r.len - S.dist);
@@ -1170,6 +1245,8 @@ function renderOverlay(p, tgt, rg){
   $("#o-iv-box").hidden = $("#interval-box").hidden;
   o("#o-iv-lbl", $("#iv-lbl").textContent); o("#o-iv", $("#iv-cd").textContent); o("#o-iv-next", $("#iv-next").textContent);
   o("#o-cad", S.live.cadence ? Math.round(S.live.cadence) : "–");
+  const ct = S.workout && cs?.s.cad; o("#o-cad-lbl", ct ? `Kadenca · ${cadTxt(ct)}` : "Kadenca");
+  $("#o-cad-box").style.borderLeftColor = ct && S.live.cadence ? cssVar(cadIn(S.live.cadence, ct) ? "--z3" : "--z5") : "transparent";
   o("#o-hr", S.live.hr || "–");
   const hz = hrZone(S.live.hr); o("#o-hr-lbl", hz >= 0 ? `Puls · ${HR_ZONES[hz][2]}` : "Puls");
   $("#o-hr-box").style.borderLeftColor = hz >= 0 ? cssVar(HR_ZONES[hz][1]) : "transparent";
@@ -1274,16 +1351,14 @@ function setRoute(r){
 }
 function renderRoutes(){
   const list = $("#route-list"); list.innerHTML = "";
-  const rs = routes();
-  if(!rs.length){ list.innerHTML = `<div class="item"><div><h3>Još nema ruta</h3><p>Uvezi GPX datoteku s visinom, npr. rutu napravljenu u Stravi ili preuzetu s Climbfindera.</p></div></div>`; return; }
-  for(const r of rs){
+  for(const r of allRoutes()){
     const el = document.createElement("div"); el.className = "item";
     const avg = r.len ? r.gain / r.len * 100 : 0;
-    el.innerHTML = `<div><h3></h3><p></p></div><div class="acts"><button class="btn small primary" data-pick>Vozi</button><button class="btn small danger" data-del>Ukloni</button></div><canvas></canvas>`;
+    el.innerHTML = `<div><h3></h3><p></p></div><div class="acts"><button class="btn small primary" data-pick>Vozi</button>${r.builtin ? "" : '<button class="btn small danger" data-del>Ukloni</button>'}</div><canvas></canvas>`;
     el.querySelector("h3").textContent = r.name;
-    el.querySelector("p").textContent = `${(r.len / 1000).toFixed(1)} km · ↑${r.gain} m · prosječno ${avg.toFixed(1)} % · od ${Math.round(r.minEle)} do ${Math.round(r.maxEle)} m`;
+    el.querySelector("p").textContent = `${(r.len / 1000).toFixed(1)} km · ↑${r.gain} m · prosječno ${avg.toFixed(1)} % · od ${Math.round(r.minEle)} do ${Math.round(r.maxEle)} m${r.desc ? " · " + r.desc : ""}`;
     el.querySelector("[data-pick]").onclick = () => setRoute(r);
-    el.querySelector("[data-del]").onclick = () => { if(confirm("Ukloniti rutu?")){ store.set("routes", routes().filter(x => x.id !== r.id)); renderRoutes(); } };
+    el.querySelector("[data-del]")?.addEventListener("click", () => { if(confirm("Ukloniti rutu?")){ store.set("routes", routes().filter(x => x.id !== r.id)); renderRoutes(); } });
     list.append(el);
     requestAnimationFrame(() => { const cv = el.querySelector("canvas"); const [g, W, H] = sizeCanvas(cv); const span = (r.maxEle - r.minEle) || 1;
       for(let x = 0; x < W; x++){ const d0 = x / W * r.len, d1 = (x + 1) / W * r.len, gr = colGrade(r, d0, d1);
@@ -1295,7 +1370,11 @@ function renderRoutes(){
 function renderWorkouts(){
   renderRoutes();
   const list = $("#wo-list"); list.innerHTML = "";
-  for(const w of allWorkouts()){
+  const groups = [["base", "Osnovni treninzi"], ["drill", "Pedal drills"], ["hr", "Po pulsu"], ["test", "Testovi"], ["imported", "Uvezeni"]];
+  const all = allWorkouts(), catOf = w => w.imported ? "imported" : w.cat || "base";
+  for(const [cat, title] of groups){ const ws = all.filter(w => catOf(w) === cat); if(!ws.length) continue;
+    const h = document.createElement("h3"); h.className = "vsect"; h.textContent = title; list.append(h);
+  for(const w of ws){
     const el = document.createElement("div"); el.className = "item";
     const tss = w.test ? 0 : Math.round(estimateTss(w));
     el.innerHTML = `<div><h3></h3><p></p></div><div class="acts"><button class="btn small primary" data-pick>Odaberi</button>${w.imported ? '<button class="btn small danger" data-del>Ukloni</button>' : ""}</div><canvas></canvas>`;
@@ -1306,7 +1385,7 @@ function renderWorkouts(){
     list.append(el);
     requestAnimationFrame(() => { const cv = el.querySelector("canvas"); const [g, W, H] = sizeCanvas(cv);
       const maxF = Math.max(1.3, ...w.segs.map(s => Math.max(toWatts(w, s.lo), toWatts(w, s.hi)) / settings.ftp)) * 1.05; drawWorkoutBlocks(g, w, W, H, maxF, 1); });
-  }
+  } }
 }
 function estimateTss(w){
   const fakes = []; let t = 0;
@@ -1553,7 +1632,8 @@ async function openReport(r){
 async function renderReport(box, r){
   const m = r.m, n = r.samples.length, hasHr = m.avgHr > 0, maxHr = r.maxHr || settings.maxHr;
   const laps = (r.laps || []).filter(l => l.dur >= 5), scored = laps.filter(l => l.score != null && l.dur >= 30);
-  const lapRows = laps.map(l => `<tr><td>${l.name}</td><td>${fmtTime(l.dur)}</td><td>${l.km.toFixed(1)} km</td><td>${l.avgP} W</td><td>${l.avgHr || "–"}</td>`
+  const lapRows = laps.map(l => `<tr><td>${l.name}${l.note ? ` <small style="color:var(--muted)">${l.note}</small>` : ""}</td><td>${fmtTime(l.dur)}</td><td>${l.km.toFixed(1)} km</td><td>${l.avgP} W</td><td>${l.avgHr || "–"}</td>`
+    + `<td class="${l.cadTgt ? (l.cadHit ? "hit" : "miss") : ""}">${l.avgCad ?? "–"}${l.cadTgt ? ` <small style="color:var(--muted)">/ ${cadTxt(l.cadTgt)}</small>` : ""}</td>`
     + (scored.length ? `<td>${l.tgt != null ? l.tgt + (l.kind === "hr" ? " bpm" : " W") : "–"}</td><td class="${l.score == null ? "" : l.hit ? "hit" : "miss"}">${l.score != null ? l.score + "%" : ""}</td>` : "") + "</tr>").join("");
   box.className = "rep";
   box.innerHTML = `<h3>Tijek vožnje</h3>
@@ -1561,7 +1641,7 @@ async function renderReport(box, r){
     <canvas data-c="time"></canvas>
     ${laps.length ? `<h3>${scored.length ? "Intervali" : "Dionice"}</h3>
       ${scored.length ? `<p class="score">Pogođeno <b>${scored.filter(l => l.hit).length} od ${scored.length}</b> intervala (unutar ±5% cilja).</p>` : ""}
-      <div class="laps-wrap"><table class="laps"><tr><th></th><th>Vrijeme</th><th>Udaljenost</th><th>Snaga</th><th>Puls</th>${scored.length ? "<th>Cilj</th><th>Izvedba</th>" : ""}</tr>${lapRows}</table></div>` : ""}
+      <div class="laps-wrap"><table class="laps"><tr><th></th><th>Vrijeme</th><th>Udaljenost</th><th>Snaga</th><th>Puls</th><th>Kadenca</th>${scored.length ? "<th>Cilj</th><th>Izvedba</th>" : ""}</tr>${lapRows}</table></div>` : ""}
     <div class="two"><div><h3>Raspodjela snage</h3><canvas data-c="pdist"></canvas></div>
       ${hasHr ? `<div><h3>Vrijeme u zonama pulsa</h3><canvas data-c="hdist"></canvas></div>` : ""}</div>
     <h3>Krivulja snage</h3>
@@ -1851,7 +1931,7 @@ window.addEventListener("beforeunload", e => { if(S.started){ e.preventDefault()
 /* init */
 (() => {
   const lw = store.get("lastWorkout", null); const w = allWorkouts().find(x => x.id === lw); if(w){ S.workout = w; $("#wo-name").textContent = w.name; $("#wo-meta").textContent = w.test ? "" : `· ${fmtTime(totalDur(w))}`; }
-  const lr = store.get("lastRoute", null); const rt = routes().find(x => x.id === lr);
+  const lr = store.get("lastRoute", null); const rt = allRoutes().find(x => x.id === lr);
   if(rt && !S.workout){ S.route = rt; $("#wo-name").textContent = rt.name; $("#wo-meta").textContent = `· ${(rt.len / 1000).toFixed(1)} km · ↑${rt.gain} m`; }
   const v = store.get("video", null); v ? setVideo(v) : showPicker();
   fillSettings(); render();

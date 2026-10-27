@@ -7,6 +7,19 @@ Aplikacija za vožnju na trenažeru u pregledniku, bez instalacije. Cijela aplik
 - **Spajanje opreme preko Web Bluetootha:** trenažer (FTMS, npr. Direto XR-T), pulsmetar i Zwift Click (v1 i v2). Uređaje koje si jednom spojio aplikacija sama spaja kad se upale.
 - **ERG treninzi:** ugrađeni treninzi (izdržljivost, sweet spot, VO2max, prag, ramp test) i uvoz `.zwo` datoteka iz Zwifta. Snaga se računa iz FTP-a, a intenzitet se mijenja s − i +.
 - **Slobodna vožnja i GPX rute:** 24 virtualne brzine sa Zwiftovim omjerima. Kod GPX rute trenažer prati nagib terena.
+- **Ugrađeni usponi:**
+  - Sljeme (Cener), Učka – Vojak (od Poklona), Biokovo – Sveti Jure;
+  - Alpe d'Huez, Mont Ventoux (Bédoin), Passo dello Stelvio (Prato).
+
+  To su virtualne rute bez GPS traga, napravljene iz objavljenih nagiba po dionicama, pa je profil približan. Vožnja se sprema s visinom, ali bez karte. Za pravu rutu uvezi GPX.
+- **Pedal drills** (po uzoru na Zwiftove *Pedalling drills* i GC Coaching treninge kadence):
+  - Spin-ups;
+  - Visoka i niska kadenca;
+  - Snaga na niskoj kadenci;
+  - Kadencna piramida;
+  - Jedna noga.
+
+  Svaki interval ima ciljanu kadencu i uputu, npr. „Samo lijeva noga“. Kadenca je zelena kad si u rasponu, a narančasta kad nisi. Glas najavljuje kadencu i javlja prosjek nakon svakog drilla. Uvoz `.zwo` čita i Zwiftove atribute `Cadence` i `CadenceResting`.
 - **YouTube video** uz vožnju: pretraga (uz besplatni API ključ) ili zalijepljen link. Gumb **Cijeli zaslon** prikazuje video preko cijelog ekrana sa snagom, ciljem ili nagibom, intervalom, kadencom, pulsom, vremenom i brzinom preko slike. YouTubeov vlastiti gumb za cijeli zaslon je isključen jer bi sakrio te podatke. Iza metrike je profil kao u Zwiftu: blokovi treninga u bojama zona (ili visinski profil rute), bijela crta snage i crvena crta pulsa. Puls se crta i na profilu ispod videa.
 - **Povijest:** metrike svake vožnje (NP, IF, TSS, kJ, najbolje snage) i izvoz u `.FIT` za Stravu, intervals.icu ili GoldenCheetah.
 - **intervals.icu:** svaka spremljena vožnja automatski ide na intervals.icu. Ako tablet nije na internetu, vožnja čeka i pošalje se kad se veza vrati.
