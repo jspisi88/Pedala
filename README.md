@@ -101,20 +101,22 @@ Stranica je označena da je Chrome ne prevodi automatski (`translate="no"`).
 
 ## Prijava
 
-Cijela stranica, uključujući `api/intervals.js`, zaključana je HTTP Basic Auth prijavom (`middleware.js`). Bez prijave nitko ne može otvoriti aplikaciju ni koristiti funkciju za slanje.
+Cijela stranica, uključujući `api/`, zaključana je prijavom (`middleware.js`). Prijava je vlastita stranica s imenom i lozinkom, pa je Chromeov upravitelj lozinki može automatski popuniti.
 
-Na Vercelu, u **Project → Settings → Environment Variables**, dodaj:
+Nakon prijave uređaj dobiva potpisani kolačić (`HttpOnly`, `Secure`) koji vrijedi godinu dana. Zato instalirana aplikacija ne traži prijavu ponovno ni nakon zatvaranja.
+
+Na Vercelu, u **Project → Settings → Environment Variables**:
 
 | Varijabla | Vrijednost |
 |---|---|
-| `PEDALA_PASSWORD` | tvoja šifra (obavezno) |
+| `PEDALA_PASSWORD` | tvoja lozinka (obavezno) |
 | `PEDALA_USER` | korisničko ime, ako ne želiš zadano `jspisic` |
 
 Zatim pokreni **Redeploy**. Dok `PEDALA_PASSWORD` nije postavljen, stranica nikoga ne pušta unutra.
 
-Preglednik pri prvom otvaranju pita za ime i šifru. Chrome ih može zapamtiti, pa ih ne moraš stalno upisivati.
+Kolačić je potpis korisničkog imena s lozinkom kao ključem. Promjena `PEDALA_PASSWORD` zato odjavljuje sve uređaje. Odjava s jednog uređaja je u **Postavke → Prijava**.
 
-API ključevi (YouTube, intervals.icu) ionako nisu u kodu ni na serveru. Spremljeni su samo u pregledniku na tvom tabletu, pa ih drugi posjetitelji ne bi vidjeli ni bez prijave.
+API ključevi (YouTube, intervals.icu) ionako nisu u kodu. Nalaze se na Vercelu ili samo u pregledniku na tvom tabletu.
 
 ## intervals.icu
 
