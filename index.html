@@ -130,6 +130,9 @@ a.btn{display:inline-block;color:inherit;text-decoration:none}
 .ovl b{font:700 46px/1 var(--num);font-variant-numeric:tabular-nums}
 .ovl i{font:600 18px/1 var(--num);font-style:normal;color:var(--muted);margin-left:4px}
 .ovl .o-pw{border-left:6px solid var(--zone);transition:border-color .6s}
+.ovl .o-hrb{border-left:6px solid transparent}
+.o-msg{position:absolute;left:50%;top:12%;transform:translateX(-50%);z-index:3;pointer-events:none;background:rgba(21,27,38,.85);border-radius:14px;padding:10px 20px;font:600 26px/1.2 var(--num);text-align:center;max-width:90%;display:none}
+.stage:fullscreen .o-msg:not([hidden]){display:block}
 .ovl .o-pw b{font-size:92px;line-height:.95}
 .ovl .o-pw i{font-size:28px}
 .ovl .o-tgt{display:block;font:700 30px/1.1 var(--num);color:var(--zone);transition:color .6s}
@@ -190,6 +193,19 @@ dialog p{color:var(--muted);margin:0 0 14px}
 .sum div{background:var(--panel2);border-radius:10px;padding:8px 10px}
 .sum small{display:block;color:var(--muted);font-size:12px}
 .sum b{font:700 26px/1.05 var(--num)}
+dialog.wide{max-width:min(980px,96vw)}
+dialog.wide .sum{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}
+.rep h3{font:600 20px/1.1 var(--num);margin:18px 0 8px}
+.rep canvas{display:block;width:100%;height:200px;background:var(--panel2);border-radius:12px}
+.rep .two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.rep .score{color:var(--muted);margin:0 0 8px}
+.rep .score b{color:var(--text)}
+.laps-wrap{overflow-x:auto}
+.laps{width:100%;border-collapse:collapse;font-size:14px;font-variant-numeric:tabular-nums}
+.laps th{text-align:left;color:var(--muted);font-weight:500;padding:4px 8px;border-bottom:1px solid var(--line)}
+.laps td{padding:5px 8px;border-bottom:1px solid var(--line)}
+.laps .hit{color:var(--z3)} .laps .miss{color:var(--z5)}
+@media (max-width: 640px){ .rep .two{grid-template-columns:1fr} }
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:10px 16px;border-radius:12px;font-weight:600;z-index:50;opacity:0;pointer-events:none;transition:opacity .25s}
 .toast.show{opacity:1}
 
@@ -272,7 +288,7 @@ dialog p{color:var(--muted);margin:0 0 14px}
       </div>
       <div class="adjust" id="adj-erg">
         <button id="bias-dn" aria-label="Smanji intenzitet">−</button>
-        <div class="mid"><b id="bias">100%</b><small>Intenzitet</small></div>
+        <div class="mid"><b id="bias">100%</b><small id="bias-lbl">Intenzitet</small></div>
         <button id="bias-up" aria-label="Povećaj intenzitet">+</button>
       </div>
       <div class="adjust" id="adj-gear" hidden>
@@ -292,11 +308,12 @@ dialog p{color:var(--muted);margin:0 0 14px}
         <div class="o-pw"><b id="o-pw">0</b><i>W</i><span class="o-tgt" id="o-tgt"></span></div>
         <div class="o-iv" id="o-iv-box"><small id="o-iv-lbl"></small><b id="o-iv">0:00</b><small id="o-iv-next"></small></div>
         <div><small>Kadenca</small><b id="o-cad">–</b><i>rpm</i></div>
-        <div><small>Puls</small><b id="o-hr">–</b><i>bpm</i></div>
+        <div class="o-hrb" id="o-hr-box"><small id="o-hr-lbl">Puls</small><b id="o-hr">–</b><i>bpm</i></div>
         <div><small>Vrijeme</small><b id="o-time">0:00</b></div>
         <div><small id="o-x-lbl">Brzina</small><b id="o-x">0.0</b><i id="o-x-unit">km/h</i></div>
       </div>
       <div class="o-paused" id="o-paused" hidden>Pauza</div>
+      <div class="o-msg" id="o-msg" hidden></div>
       <div class="vid-tools" id="vid-tools" hidden>
         <button class="btn small" id="btn-vid-change">Promijeni video</button>
         <button class="btn small" id="btn-fs">Cijeli zaslon</button>
@@ -398,9 +415,12 @@ dialog p{color:var(--muted);margin:0 0 14px}
         <label>Težina (kg)<input name="weight" type="number" min="30" max="200" step="0.5"></label>
         <label>Prednji lančanik (zubi)<input name="chainring" type="number" min="20" max="60" step="1"></label>
         <label>Zwift Cog (zubi)<input name="cog" type="number" min="10" max="30" step="1"></label>
+        <label>Maksimalni puls (bpm)<input name="maxHr" type="number" min="120" max="230" step="1"></label>
+        <p class="note" style="margin:22px 0 0">Zone pulsa: Z1 do 60%, Z2 60–70%, Z3 70–80%, Z4 80–90%, Z5 iznad 90% maksimalnog.</p>
         <label class="full">YouTube API ključ (samo ako nije postavljen na Vercelu)<input name="ytKey" type="text" autocomplete="off" spellcheck="false" placeholder="AIza…"></label>
         <p class="full note" style="margin:-4px 0 4px">Besplatan je: na console.cloud.google.com napravi projekt, uključi <b>YouTube Data API v3</b> i pod Credentials stvori API key. Dnevna kvota je dovoljna za oko 100 pretraga. Bez ključa i dalje možeš zalijepiti link.</p>
         <label class="full check"><input name="beep" type="checkbox"> Zvučni signal na promjeni intervala</label>
+        <label class="full check"><input name="voice" type="checkbox"> Glasovne najave (sljedeći interval, rezultat intervala i dionice)</label>
         <label class="full check"><input name="pauseVideo" type="checkbox"> Pauziraj video kad pauziram trening</label>
         <label class="full check"><input name="autoPause" type="checkbox"> Automatska pauza kad prestanem pedalirati</label>
       </form>
@@ -434,16 +454,25 @@ dialog p{color:var(--muted);margin:0 0 14px}
   <div class="dlg-acts"><button class="btn" data-close>Odustani</button></div>
 </dialog>
 
-<dialog id="dlg-summary">
+<dialog id="dlg-summary" class="wide">
   <h2 id="sum-title">Vožnja gotova</h2>
   <p id="sum-sub"></p>
   <div class="sum" id="sum-grid"></div>
   <div id="sum-ftp"></div>
-  <div class="dlg-acts">
+  <div id="sum-report"></div>
+  <div class="dlg-acts" style="margin-top:16px">
     <button class="btn danger" id="sum-discard">Odbaci</button>
     <button class="btn" id="sum-resume">Nastavi voziti</button>
     <button class="btn primary" id="sum-save">Spremi vožnju</button>
   </div>
+</dialog>
+
+<dialog id="dlg-report" class="wide">
+  <h2 id="rep-title"></h2>
+  <p id="rep-sub"></p>
+  <div class="sum" id="rep-grid"></div>
+  <div id="rep-body"></div>
+  <div class="dlg-acts" style="margin-top:16px"><button class="btn" data-close>Zatvori</button></div>
 </dialog>
 
 <dialog id="dlg-click">
@@ -468,7 +497,10 @@ const store = {
   get(k, d){ try{ const v = localStorage.getItem("pedala."+k); return v==null ? d : JSON.parse(v); }catch{ return d; } },
   set(k, v){ try{ localStorage.setItem("pedala."+k, JSON.stringify(v)); return true; }catch{ return false; } }
 };
-const settings = Object.assign({ ftp: 230, weight: 80, chainring: 34, cog: 14, clickMap: {}, beep: true, pauseVideo: true, autoPause: true }, store.get("settings", {}));
+const settings = Object.assign({ ftp: 230, weight: 80, chainring: 34, cog: 14, clickMap: {}, beep: true, pauseVideo: true, autoPause: true, maxHr: 185, voice: true }, store.get("settings", {}));
+/* heart-rate zones as fractions of max HR: [upper bound, colour, name] */
+const HR_ZONES = [[.6, "--z1", "Z1"], [.7, "--z2", "Z2"], [.8, "--z3", "Z3"], [.9, "--z4", "Z4"], [99, "--z6", "Z5"]];
+const hrZone = (hr, max = settings.maxHr) => hr ? HR_ZONES.findIndex(z => hr / max < z[0]) : -1;
 const ZONES = [[0.55,"--z1"],[0.76,"--z2"],[0.91,"--z3"],[1.06,"--z4"],[1.21,"--z5"],[99,"--z6"]];
 const zoneVar = frac => ZONES.find(z => frac < z[0])[1];
 const cssVar = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
@@ -544,7 +576,7 @@ class BleTrainer {
 
 /* simulator: behaves like an obedient rider on a trainer */
 class SimTrainer {
-  constructor(onData, onStatus){ this.onData = onData; this.onStatus = onStatus; this.target = 150; this.grade = 0; this.mode = "erg"; this.p = 0; }
+  constructor(onData, onStatus){ this.onData = onData; this.onStatus = onStatus; this.target = 150; this.grade = 0; this.mode = "erg"; this.p = 0; this.hr = 72; }
   async connect(){
     this.onStatus("on", "Simulator");
     this.timer = setInterval(() => {
@@ -554,7 +586,8 @@ class SimTrainer {
       if(!pedaling) goal = 0;
       this.p += (goal - this.p) * 0.35;
       const power = Math.max(0, Math.round(this.p + (pedaling ? (Math.random()-.5) * 14 : 0)));
-      this.onData({ power, cadence: cad, speed: undefined });
+      this.hr += (70 + this.p * .35 - this.hr) * .012;            // heart rate follows power with a lag
+      this.onData({ power, cadence: cad, speed: undefined, hr: Math.round(this.hr + Math.sin(Date.now() / 3000)) });
     }, 250 / SIM_SPEED);
   }
   setPower(w){ this.mode = "erg"; this.target = w; }
@@ -578,7 +611,8 @@ class BleHR {
 }
 
 /* ============ workouts ============ */
-// segment: { d: seconds, lo, hi, free? }  lo/hi = fraction of FTP, or watts when workout.abs
+// segment: { d: seconds, lo, hi, free?, hr? }  lo/hi = fraction of FTP, or watts when workout.abs;
+// hr = target heart rate as a fraction of max HR: power is then steered to hold it, starting from lo
 const BUILTIN = [
   { id:"b-endurance", name:"Izdržljivost 60", desc:"Mirna Z2 vožnja s par kratkih tempo dionica.", segs:[
     {d:600,lo:.45,hi:.68}, {d:900,lo:.68,hi:.68}, {d:180,lo:.82,hi:.82}, {d:720,lo:.68,hi:.68}, {d:180,lo:.82,hi:.82}, {d:720,lo:.68,hi:.68}, {d:300,lo:.6,hi:.42}]},
@@ -588,6 +622,10 @@ const BUILTIN = [
       for(let i=0;i<5;i++){ s.push({d:180,lo:1.15,hi:1.15}); s.push({d:180,lo:.5,hi:.5}); } s.push({d:420,lo:.6,hi:.4}); return s; })()},
   { id:"b-thr", name:"Prag 2×20", desc:"Dva duga bloka na 95–100%. Teško, ali isplati se.", segs:[
     {d:600,lo:.45,hi:.75}, {d:1200,lo:.96,hi:.96}, {d:480,lo:.55,hi:.55}, {d:1200,lo:.96,hi:.96}, {d:420,lo:.6,hi:.4}]},
+  { id:"b-hr60", name:"Z2 po pulsu 60", desc:"Snaga se sama namješta da puls ostane na 70% maksimalnog. Treba pulsmetar.", segs:[
+    {d:600,lo:.45,hi:.65}, {d:2700,lo:.65,hi:.65,hr:.7}, {d:300,lo:.55,hi:.42}]},
+  { id:"b-hr90", name:"Z2 po pulsu 90", desc:"Duga vožnja na 70% maksimalnog pulsa, snaga se namješta sama. Treba pulsmetar.", segs:[
+    {d:600,lo:.45,hi:.65}, {d:4500,lo:.65,hi:.65,hr:.7}, {d:300,lo:.55,hi:.42}]},
   { id:"b-ramp", name:"Ramp test", desc:"Svaku minutu +20 W dok ne možeš više. FTP = 75% najbolje minute. Kad odustaneš, pritisni Završi.", abs:true, test:"ramp", segs:(() => {
       const s=[{d:300,lo:100,hi:100}]; for(let w=120; w<=700; w+=20) s.push({d:60,lo:w,hi:w}); return s; })()},
 ];
@@ -634,6 +672,7 @@ const S = {
   workout: null, route: null, bias: 1, gear: 10, v: 0,
   running: false, started: false, t: 0, woT: 0, startMs: 0,
   samples: [], dist: 0, lastSeg: -1, idle: 0, autoPaused: false,
+  laps: [], lap: null, hrP: null, hrOff: 0, hrWarned: false,
 };
 /* virtual gearing: same ratios as Zwift */
 const GEARS = [0.75,0.87,0.99,1.11,1.23,1.38,1.53,1.68,1.86,2.04,2.22,2.40,2.61,2.82,3.03,3.24,3.49,3.74,3.99,4.24,4.54,4.84,5.14,5.49];
@@ -722,7 +761,95 @@ function currentSeg(){
 }
 function targetNow(){
   const c = currentSeg(); if(!c || c.s.free) return null;
+  if(c.s.hr) return Math.round(S.hrP ?? toWatts(S.workout, c.s.lo));
   return Math.round(toWatts(S.workout, segFrac(S.workout, c.s, c.into / c.s.d)) * S.bias);
+}
+const hrTarget = s => Math.round(s.hr * settings.maxHr) + S.hrOff;
+/* heart-rate segment: nudge the ERG power toward the target heart rate. Heart rate lags power by
+   a minute or so, hence the slow correction (max 1 W per second) and a ±2 bpm dead band. */
+function steerHr(c){
+  if(!c?.s.hr){ S.hrP = null; return; }
+  S.hrP ??= toWatts(S.workout, c.s.lo);
+  if(!S.live.hr){ if(!S.hrWarned){ S.hrWarned = true; notify("Za trening po pulsu spoji pulsmetar"); } return; }
+  const err = hrTarget(c.s) - S.live.hr;
+  if(Math.abs(err) > 2) S.hrP = clamp(S.hrP + clamp(err * .06, -1, 1), .4 * settings.ftp, 1.05 * settings.ftp);
+}
+
+/* ============ laps ============
+   Workout: one lap per segment. Free ride and routes: one lap every 5 km.
+   An open lap sums power, heart rate and target each second; closing it gives the averages and,
+   for power or heart-rate targets, how close the ride came (score in %, hit = within ±5%). */
+const LAP_KM = 5;
+function lapOpen(extra){ S.lap = { t0: S.t, d0: S.dist, n: 0, p: 0, hr: 0, hrN: 0, tgt: 0, tgtN: 0, ...extra }; }
+function lapSummary(l){
+  const lap = { name: l.name, kind: l.kind, t0: l.t0, dur: l.n, km: +((S.dist - l.d0) / 1000).toFixed(2), avgP: l.n ? Math.round(l.p / l.n) : 0,
+    avgHr: l.hrN ? Math.round(l.hr / l.hrN) : 0, tgt: l.tgtN && (l.kind === "power" || l.kind === "hr") ? Math.round(l.tgt / l.tgtN) : null };
+  const actual = l.kind === "hr" ? lap.avgHr : lap.avgP;
+  if(lap.tgt && actual){ lap.score = Math.round(actual / lap.tgt * 100); lap.hit = Math.abs(lap.score - 100) <= 5; }
+  return lap;
+}
+function lapClose(){ const l = S.lap; S.lap = null; if(!l?.n) return null; const lap = lapSummary(l); S.laps.push(lap); return lap; }
+/* called once per second while riding, after the sample is recorded */
+function lapTick(c, tgt){
+  if(S.workout && c){
+    if(!S.lap || S.lap.seg !== c.i){
+      const done = lapClose(); if(done) lapResult(done);
+      lapOpen({ seg: c.i, name: `Interval ${c.i + 1}`, kind: c.s.free ? "free" : c.s.hr ? "hr" : "power" });
+      if(c.i === 0 && S.t <= 1) say(`Kreće trening. ${segSpeech(c.s)}.`);
+    }
+    // next segment in 10 seconds
+    const nx = S.workout.segs[c.i + 1];
+    if(nx && Math.round(c.left) === 10 && c.s.d >= 20) say(`Za 10 sekundi: ${segSpeech(nx)}.`);
+  } else if(!S.workout){
+    if(!S.lap) lapOpen({ name: `Dionica ${S.laps.length + 1}`, kind: "dist" });
+    else if(S.dist - S.lap.d0 >= LAP_KM * 1000){ lapResult(lapClose()); lapOpen({ name: `Dionica ${S.laps.length + 1}`, kind: "dist" }); }
+  }
+  const l = S.lap; if(!l) return;
+  l.n++; l.p += S.live.power; if(S.live.hr){ l.hr += S.live.hr; l.hrN++; }
+  const t = l.kind === "hr" ? hrTarget(c.s) : l.kind === "power" ? tgt : null;
+  if(t != null){ l.tgt += t; l.tgtN++; }
+}
+function lapResult(lap){
+  if(!lap) return;
+  if(lap.kind === "dist"){
+    notify(`${lap.name}: ${fmtTime(lap.dur)} · ${lap.avgP} W${lap.avgHr ? " · " + lap.avgHr + " bpm" : ""}`);
+    say(`${Math.round(S.dist / 1000)} ${plural(Math.round(S.dist / 1000), "kilometar", "kilometra", "kilometara")}. Zadnjih ${LAP_KM} za ${sayDur(lap.dur)}, prosjek ${lap.avgP} ${plural(lap.avgP, "vat", "vata", "vata")}.`);
+  } else if(lap.score != null && lap.dur >= 30 && !S.workout?.test){
+    const what = lap.kind === "hr" ? `${lap.avgHr} bpm od ${lap.tgt}` : `${lap.avgP} W od ${lap.tgt}`;
+    notify(`${lap.name}: ${what} (${lap.score}%)`);
+    say(lap.kind === "hr" ? `Interval gotov. Prosječni puls ${lap.avgHr}.` : `Interval gotov. Prosjek ${lap.avgP} ${plural(lap.avgP, "vat", "vata", "vata")}, ${lap.score} posto.`);
+  }
+}
+
+/* ============ voice ============ */
+const plural = (n, one, few, many) => { n = Math.abs(Math.round(n)); const a = n % 10, b = n % 100; return a === 1 && b !== 11 ? one : a >= 2 && a <= 4 && (b < 12 || b > 14) ? few : many; };
+function sayDur(sec){
+  sec = Math.round(sec); const m = Math.floor(sec / 60), x = sec % 60;
+  const mm = m ? `${m} ${plural(m, "minuta", "minute", "minuta")}` : "", ss = x ? `${x} ${plural(x, "sekunda", "sekunde", "sekundi")}` : "";
+  return [mm, ss].filter(Boolean).join(" i ");
+}
+function segSpeech(sg){
+  const w = S.workout, d = sayDur(sg.d);
+  if(sg.free) return `${d} slobodno`;
+  if(sg.hr) return `${d} na pulsu ${hrTarget(sg)}`;
+  const a = Math.round(toWatts(w, sg.lo) * S.bias), b = Math.round(toWatts(w, sg.hi) * S.bias);
+  return Math.abs(a - b) < 5 ? `${d} na ${a} ${plural(a, "vat", "vata", "vata")}` : `${d}, od ${a} do ${b} ${plural(b, "vat", "vata", "vata")}`;
+}
+let hrVoice = null;
+function say(text){
+  if(!settings.voice || !("speechSynthesis" in window)) return;
+  try{
+    hrVoice ||= speechSynthesis.getVoices().find(v => /^hr/i.test(v.lang)) || null;
+    const u = new SpeechSynthesisUtterance(text); u.lang = "hr-HR"; u.rate = 1.05; if(hrVoice) u.voice = hrVoice;
+    speechSynthesis.speak(u);
+  }catch{}
+}
+window.speechSynthesis?.addEventListener?.("voiceschanged", () => { hrVoice = null; });
+/* message as a toast and, in fullscreen, over the video */
+function notify(msg){
+  toast(msg);
+  const o = $("#o-msg"); o.textContent = msg; o.hidden = false;
+  clearTimeout(notify.t); notify.t = setTimeout(() => { o.hidden = true; }, 6000);
 }
 function applyControl(){
   if(!S.trainer) return;
@@ -743,6 +870,8 @@ function tick(){
     if(S.route){ const [la, lo] = posAt(S.route, S.dist); smp.push(la, lo, Math.round(eleAt(S.route, S.dist) * 10) / 10); }
     S.samples.push(smp);
     const c = currentSeg();
+    lapTick(c, targetNow());
+    steerHr(c);
     if(c && c.i !== S.lastSeg){ if(S.lastSeg !== -1 && settings.beep) beep(880, .18); S.lastSeg = c.i; }
     if(c && settings.beep && c.left <= 3.5 && c.left > 0.5 && c.i < S.workout.segs.length - 1) beep(520, .07);
     if(S.workout && !c){ finishWorkout(); }
@@ -759,13 +888,13 @@ function startClock(){ if(!tickTimer) tickTimer = setInterval(tick, 1000 / (S.tr
 
 function start(){
   if(!S.trainer){ $("#dlg-connect").showModal(); return; }
-  if(!S.started){ S.started = true; S.startMs = Date.now(); S.samples = []; S.t = 0; S.woT = 0; S.dist = 0; S.v = 0; S.lastSeg = -1; }
+  if(!S.started){ S.started = true; S.startMs = Date.now(); S.samples = []; S.t = 0; S.woT = 0; S.dist = 0; S.v = 0; S.lastSeg = -1; S.laps = []; S.lap = null; S.hrP = null; S.hrWarned = false; }
   S.running = true; S.autoPaused = false; S.idle = 0; if(S.trainer.stopped) S.trainer.stopped = false;
   applyControl(); startClock(); wakeLock(); yt("playVideo"); render();
 }
 function pause(auto){ S.running = false; S.autoPaused = !!auto; if(settings.pauseVideo) yt("pauseVideo"); if(auto) toast("Pauza: nastavi pedalirati za nastavak"); render(); }
 function resume(){ S.running = true; S.autoPaused = false; S.idle = 0; yt("playVideo"); toast("Nastavljam"); }
-function finishWorkout(){ S.running = false; if(settings.beep) beep(660, .4); openSummary(); }
+function finishWorkout(){ S.running = false; if(settings.beep) beep(660, .4); say(S.route ? "Stigao si na cilj." : "Trening je gotov. Bravo."); openSummary(); }
 
 /* ============ metrics ============ */
 function metrics(samples, ftp){
@@ -958,10 +1087,12 @@ function render(){
   const rg = S.route ? roadGrade() : null;
   $("#tgt").textContent = tgt != null ? tgt + " W" : rg != null ? rg.toFixed(1) + " %" : "";
   $("#tgt").style.color = rg != null && tgt == null ? gradeColor(rg) : "";
-  $("#tgt-lbl").textContent = S.route && tgt == null ? "Nagib" : !S.workout ? "Slobodna vožnja" : c?.s.free ? "Slobodno" : "Cilj";
+  $("#tgt-lbl").textContent = S.route && tgt == null ? "Nagib" : !S.workout ? "Slobodna vožnja" : c?.s.free ? "Slobodno" : c?.s.hr ? `Cilj · puls ${hrTarget(c.s)}` : "Cilj";
   $("#pw-delta").textContent = tgt != null && S.running ? (p - tgt > 0 ? "+" : "") + (p - tgt) : "";
   $("#cad").innerHTML = (S.live.cadence ? Math.round(S.live.cadence) : "–") + "<i>rpm</i>";
-  $("#hr").innerHTML = (S.live.hr ? S.live.hr : "–") + "<i>bpm</i>";
+  const hz = hrZone(S.live.hr);
+  $("#hr").innerHTML = (S.live.hr ? S.live.hr : "–") + `<i>bpm${hz >= 0 ? " · " + HR_ZONES[hz][2] : ""}</i>`;
+  $("#hr").style.color = hz >= 0 ? cssVar(HR_ZONES[hz][1]) : "";
   $("#elapsed").textContent = fmtTime(S.t);
   $("#dist").innerHTML = (S.dist / 1000).toFixed(1) + "<i>km</i>";
   $("#spd").innerHTML = (S.live.speed || 0).toFixed(1) + "<i>km/h</i>";
@@ -970,7 +1101,8 @@ function render(){
 
   const freeNow = !S.workout || c?.s.free;
   $("#adj-erg").hidden = freeNow; $("#adj-gear").hidden = !freeNow;
-  $("#bias").textContent = Math.round(S.bias * 100) + "%";
+  $("#bias").textContent = c?.s.hr ? hrTarget(c.s) + " bpm" : Math.round(S.bias * 100) + "%";
+  $("#bias-lbl").textContent = c?.s.hr ? "Ciljani puls" : "Intenzitet";
   $("#gear").textContent = S.gear;
   $("#gear-sub").textContent = `Brzina · omjer ${GEARS[S.gear - 1].toFixed(2)}`;
 
@@ -980,7 +1112,7 @@ function render(){
     $("#iv-lbl").textContent = `Interval ${c.i + 1} od ${S.workout.segs.length}`;
     $("#iv-cd").textContent = fmtTime(c.left);
     const n = S.workout.segs[c.i + 1];
-    $("#iv-next").textContent = n ? `Sljedeće: ${fmtTime(n.d)} ${n.free ? "slobodno" : "na " + Math.round(toWatts(S.workout, (n.lo + n.hi) / 2) * S.bias) + " W"}` : "Zadnji interval";
+    $("#iv-next").textContent = n ? `Sljedeće: ${fmtTime(n.d)} ${n.free ? "slobodno" : n.hr ? "na pulsu " + hrTarget(n) : "na " + Math.round(toWatts(S.workout, (n.lo + n.hi) / 2) * S.bias) + " W"}` : "Zadnji interval";
     $("#wo-left").textContent = S.workout.test ? "Vozi dok možeš, onda Završi" : "Još " + fmtTime(totalDur(S.workout) - S.woT);
   } else if(S.route){
     const r = S.route, left = Math.max(0, r.len - S.dist);
@@ -1003,12 +1135,15 @@ function renderOverlay(p, tgt, rg){
   if(document.fullscreenElement !== $("#stage")) return;
   const o = (id, v) => { const el = $(id); v = String(v); if(el.textContent !== v) el.textContent = v; };
   o("#o-pw", p);
-  o("#o-tgt", tgt != null ? `cilj ${tgt} W` : rg != null ? `nagib ${rg.toFixed(1)} %` : "");
+  const cs = currentSeg();
+  o("#o-tgt", cs?.s.hr ? `puls ${hrTarget(cs.s)} · ${tgt} W` : tgt != null ? `cilj ${tgt} W` : rg != null ? `nagib ${rg.toFixed(1)} %` : "");
   $("#o-tgt").style.color = tgt == null && rg != null ? gradeColor(rg) : "";
   $("#o-iv-box").hidden = $("#interval-box").hidden;
   o("#o-iv-lbl", $("#iv-lbl").textContent); o("#o-iv", $("#iv-cd").textContent); o("#o-iv-next", $("#iv-next").textContent);
   o("#o-cad", S.live.cadence ? Math.round(S.live.cadence) : "–");
   o("#o-hr", S.live.hr || "–");
+  const hz = hrZone(S.live.hr); o("#o-hr-lbl", hz >= 0 ? `Puls · ${HR_ZONES[hz][2]}` : "Puls");
+  $("#o-hr-box").style.borderLeftColor = hz >= 0 ? cssVar(HR_ZONES[hz][1]) : "transparent";
   o("#o-time", fmtTime(S.t));
   o("#o-x-lbl", S.route ? "Udaljenost" : "Brzina");
   o("#o-x", S.route ? (S.dist / 1000).toFixed(1) : (S.live.speed || 0).toFixed(1)); o("#o-x-unit", S.route ? "km" : "km/h");
@@ -1093,7 +1228,7 @@ function drawProfile(cv = $("#profile")){
 
 function setWorkout(w){
   if(S.started && !confirm("Trenutna vožnja će se nastaviti s novim treningom. Nastaviti?")) return;
-  S.workout = w; S.route = null; S.woT = 0; S.lastSeg = -1; S.bias = 1; store.set("lastRoute", null);
+  S.workout = w; S.route = null; S.woT = 0; S.lastSeg = -1; S.bias = 1; S.hrOff = 0; S.hrP = null; S.lap = null; store.set("lastRoute", null);
   $("#wo-name").textContent = w ? w.name : "Slobodna vožnja";
   $("#wo-meta").textContent = w && !w.test ? `· ${fmtTime(totalDur(w))}` : "";
   store.set("lastWorkout", w ? w.id : null);
@@ -1162,9 +1297,10 @@ async function renderHistory(){
     const el = document.createElement("div"); el.className = "item"; const m = r.m;
     el.innerHTML = `<div><h3></h3><div class="metrics"><span><b>${fmtTime(m.duration)}</b></span><span><b>${m.avgP}</b>W prosj.</span><span><b>${m.np}</b>NP</span><span><b>${m.tss}</b>TSS</span><span><b>${m.IF}</b>IF</span>${m.avgHr ? `<span><b>${m.avgHr}</b>bpm</span>` : ""}<span><b>${(m.distance/1000).toFixed(1)}</b>km</span></div>
       <p>Najbolje: 5 s ${m.best.s5} W · 1 min ${m.best.m1} W · 5 min ${m.best.m5 || "–"} W · 20 min ${m.best.m20 || "–"} W</p></div>
-      <div class="acts">${icuButton(r)}<button class="btn small" data-fit>.FIT</button><button class="btn small danger" data-del>Obriši</button></div><canvas></canvas>`;
+      <div class="acts"><button class="btn small primary" data-rep>Izvještaj</button>${icuButton(r)}<button class="btn small" data-fit>.FIT</button><button class="btn small danger" data-del>Obriši</button></div><canvas></canvas>`;
     el.querySelector("h3").textContent = `${r.name} · ${new Date(r.start).toLocaleDateString("hr-HR", { weekday: "short", day: "numeric", month: "numeric" })} ${new Date(r.start).toLocaleTimeString("hr-HR", { hour: "2-digit", minute: "2-digit" })}`;
     el.querySelector("[data-fit]").onclick = () => downloadFit(r);
+    el.querySelector("[data-rep]").onclick = () => openReport(r);
     el.querySelector("[data-icu]")?.addEventListener("click", () => queueIcu(r));
     el.querySelector("[data-del]").onclick = async () => { if(confirm("Obrisati ovu vožnju?")){ await dbDel(r.id); renderHistory(); } };
     list.append(el);
@@ -1363,18 +1499,100 @@ $("#icu-auto").onchange = e => { settings.icuAuto = e.target.checked; store.set(
 window.addEventListener("online", () => syncIcu());
 document.addEventListener("visibilitychange", () => { if(document.visibilityState === "visible") syncIcu(); });
 
+/* ============ ride report ============
+   Like Zwift's workout report: timeline of power and heart rate, laps/intervals, power distribution,
+   time in heart-rate zones and the power curve against the best of the last 90 days. */
+const CURVE_D = [1, 5, 15, 30, 60, 120, 300, 600, 1200, 1800, 3600, 5400, 7200];
+function bestAvg(P, d){ if(P.length < d) return 0; let r = 0, b = 0; for(let i = 0; i < P.length; i++){ r += P[i]; if(i >= d) r -= P[i - d]; if(i >= d - 1 && r > b) b = r; } return Math.round(b / d); }
+const curveCache = new Map();
+function powerCurve(r){ if(!curveCache.has(r.id)){ const P = r.samples.map(s => s[1]); curveCache.set(r.id, CURVE_D.map(d => bestAvg(P, d))); } return curveCache.get(r.id); }
+const fmtDur = d => d < 60 ? d + " s" : d < 3600 ? d / 60 + " min" : d / 3600 + " h";
+
+function reportHeader(r){
+  const m = r.m;
+  return [["Vrijeme", fmtTime(m.duration)], ["Prosjek", m.avgP + " W"], ["NP", m.np + " W"], ["TSS", m.tss], ["IF", m.IF], ["kJ", m.kj],
+    ["Najbolja min", m.best.m1 + " W"], ["Puls", m.avgHr ? `${m.avgHr} / ${m.maxHr} bpm` : "–"], ["Kadenca", m.avgCad ? m.avgCad + " rpm" : "–"], ["Udaljenost", (m.distance / 1000).toFixed(1) + " km"]]
+    .map(([k, v]) => `<div><small>${k}</small><b>${v}</b></div>`).join("");
+}
+async function openReport(r){
+  $("#rep-title").textContent = r.name;
+  $("#rep-sub").textContent = new Date(r.start).toLocaleString("hr-HR");
+  $("#rep-grid").innerHTML = reportHeader(r);
+  $("#rep-body").innerHTML = ""; $("#dlg-report").showModal();
+  renderReport($("#rep-body"), r);
+}
+async function renderReport(box, r){
+  const m = r.m, n = r.samples.length, hasHr = m.avgHr > 0, maxHr = r.maxHr || settings.maxHr;
+  const laps = (r.laps || []).filter(l => l.dur >= 5), scored = laps.filter(l => l.score != null && l.dur >= 30);
+  const lapRows = laps.map(l => `<tr><td>${l.name}</td><td>${fmtTime(l.dur)}</td><td>${l.km.toFixed(1)} km</td><td>${l.avgP} W</td><td>${l.avgHr || "–"}</td>`
+    + (scored.length ? `<td>${l.tgt != null ? l.tgt + (l.kind === "hr" ? " bpm" : " W") : "–"}</td><td class="${l.score == null ? "" : l.hit ? "hit" : "miss"}">${l.score != null ? l.score + "%" : ""}</td>` : "") + "</tr>").join("");
+  box.className = "rep";
+  box.innerHTML = `<h3>Tijek vožnje</h3>
+    <div class="legend"><span><i style="background:var(--z3)"></i>Snaga (boja = zona)</span>${hasHr ? '<span><i style="background:var(--z6)"></i>Puls</span>' : ""}</div>
+    <canvas data-c="time"></canvas>
+    ${laps.length ? `<h3>${scored.length ? "Intervali" : "Dionice"}</h3>
+      ${scored.length ? `<p class="score">Pogođeno <b>${scored.filter(l => l.hit).length} od ${scored.length}</b> intervala (unutar ±5% cilja).</p>` : ""}
+      <div class="laps-wrap"><table class="laps"><tr><th></th><th>Vrijeme</th><th>Udaljenost</th><th>Snaga</th><th>Puls</th>${scored.length ? "<th>Cilj</th><th>Izvedba</th>" : ""}</tr>${lapRows}</table></div>` : ""}
+    <div class="two"><div><h3>Raspodjela snage</h3><canvas data-c="pdist"></canvas></div>
+      ${hasHr ? `<div><h3>Vrijeme u zonama pulsa</h3><canvas data-c="hdist"></canvas></div>` : ""}</div>
+    <h3>Krivulja snage</h3>
+    <div class="legend"><span><i style="background:var(--text)"></i>Ova vožnja</span><span><i style="background:var(--faint)"></i>Najbolje u zadnjih 90 dana</span></div>
+    <canvas data-c="curve"></canvas>`;
+  await new Promise(res => requestAnimationFrame(() => requestAnimationFrame(res)));   // canvases need a layout to size
+  const cv = k => box.querySelector(`[data-c="${k}"]`), P = r.samples.map(s => s[1]);
+
+  // timeline: power columns coloured by zone, heart rate on its own 60–200 scale, lap boundaries
+  { const cols = Math.max(1, Math.floor(cv("time").getBoundingClientRect().width - 50)), col = [];
+    for(let x = 0; x < cols; x++){ const a = Math.floor(x / cols * n), b = Math.max(a + 1, Math.floor((x + 1) / cols * n)); let p = 0, h = 0, hn = 0;
+      for(let i = a; i < b && i < n; i++){ p += r.samples[i][1]; if(r.samples[i][3]){ h += r.samples[i][3]; hn++; } } col.push([p / Math.max(1, Math.min(b, n) - a), hn ? h / hn : 0]); }
+    const c = chart(cv("time"), 0, Math.max(100, ...col.map(x => x[0])) * 1.05, v => v + " W"), bw = c.w / cols;
+    col.forEach(([p], x) => { c.g.fillStyle = zoneColor(p / r.ftp); c.g.fillRect(c.L + x * bw, c.Y(p), bw + .5, c.Y(0) - c.Y(p)); });
+    c.g.strokeStyle = "rgba(233,237,243,.5)"; c.g.lineWidth = 1;
+    for(const l of laps.slice(1)){ const x = Math.round(c.L + l.t0 / n * c.w) + .5; c.g.beginPath(); c.g.moveTo(x, c.T); c.g.lineTo(x, c.T + c.h); c.g.stroke(); }
+    if(hasHr){ c.g.save(); c.g.translate(c.L, c.T); drawHr(c.g, col.map(([, h], x) => [x * bw + bw / 2, h]), c.h, 2); c.g.restore(); }
+    const step = n > 5400 ? 1800 : n > 2400 ? 600 : n > 900 ? 300 : 60;
+    for(let t = step; t < n; t += step) c.xLabel(c.L + t / n * c.w, fmtTime(t)); }
+
+  // power distribution in 25 W bins, minutes per bin
+  { const bin = 25, top = Math.max(bin, Math.min(Math.max(...P), r.ftp * 2)), nb = Math.ceil(top / bin) + 1, mins = Array(nb).fill(0);
+    for(const p of P) mins[Math.min(nb - 1, Math.floor(p / bin))] += 1 / 60;
+    const c = chart(cv("pdist"), 0, Math.max(1, ...mins), v => +v.toFixed(1) + " min"), bw = c.w / nb;
+    mins.forEach((v, i) => { c.g.fillStyle = zoneColor((i + .5) * bin / r.ftp); c.g.fillRect(c.L + i * bw + 1, c.Y(v), bw - 2, c.Y(0) - c.Y(v));
+      if(i % Math.ceil(nb / 6) === 0) c.xLabel(c.L + i * bw, i * bin + ""); }); }
+
+  // time in heart-rate zones
+  if(hasHr){ const mins = HR_ZONES.map(() => 0), tot = r.samples.filter(s => s[3]).length;
+    for(const sm of r.samples) if(sm[3]) mins[hrZone(sm[3], maxHr)] += 1 / 60;
+    const c = chart(cv("hdist"), 0, Math.max(1, ...mins), v => +v.toFixed(1) + " min"), bw = c.w / 5, lo = [0, .6, .7, .8, .9];
+    mins.forEach((v, i) => { c.g.fillStyle = cssVar(HR_ZONES[i][1]); c.g.fillRect(c.L + i * bw + 6, c.Y(v), bw - 12, c.Y(0) - c.Y(v));
+      c.g.fillStyle = cssVar("--text"); c.g.textAlign = "center"; c.g.textBaseline = "bottom"; c.g.font = "600 12px Barlow, system-ui";
+      if(v > 0) c.g.fillText(Math.round(v * 60 / tot * 100) + "%", c.L + (i + .5) * bw, c.Y(v) - 3);
+      c.xLabel(c.L + (i + .5) * bw, `${HR_ZONES[i][2]} ${i ? Math.round(lo[i] * maxHr) + "+" : "<" + Math.round(lo[1] * maxHr)}`); }); }
+
+  // power curve, log time axis, against the best of the last 90 days
+  { let others = []; try{ others = (await dbAll()).filter(o => o.id !== r.id && o.start > r.start - 90 * 864e5 && o.start <= r.start + 1); }catch{}
+    const mine = powerCurve(r), best = CURVE_D.map((_, i) => Math.max(0, ...others.map(o => powerCurve(o)[i])));
+    const idx = CURVE_D.map((d, i) => i).filter(i => CURVE_D[i] <= Math.max(n, ...others.map(o => o.samples.length)));
+    const c = chart(cv("curve"), 0, Math.max(100, ...idx.map(i => Math.max(mine[i], best[i]))) * 1.05, v => v + " W");
+    const lx = d => c.L + Math.log(d) / Math.log(CURVE_D[idx.at(-1)] || 2) * c.w;
+    const pts = arr => idx.filter(i => arr[i] > 0).map(i => [lx(CURVE_D[i]), c.Y(arr[i])]);
+    c.g.setLineDash([5, 4]); c.line(pts(best), cssVar("--faint"), 2); c.g.setLineDash([]);
+    c.line(pts(mine), cssVar("--text"), 2.5);
+    c.g.fillStyle = cssVar("--text"); for(const [x, y] of pts(mine)){ c.g.beginPath(); c.g.arc(x, y, 3, 0, 7); c.g.fill(); }
+    idx.forEach(i => { if([1, 5, 60, 300, 1200, 3600].includes(CURVE_D[i])) c.xLabel(clamp(lx(CURVE_D[i]), c.L + 14, c.L + c.w - 14), fmtDur(CURVE_D[i])); }); }
+}
+
 /* ============ summary ============ */
 let pendingRide = null;
 function openSummary(){
   S.running = false; yt("pauseVideo");
   const m = metrics(S.samples, settings.ftp);
   if(!m || m.duration < 10){ toast("Prekratka vožnja za spremanje"); resetRide(); return; }
-  pendingRide = { id: "r-" + S.startMs, start: S.startMs, name: S.workout ? S.workout.name : S.route ? S.route.name : "Slobodna vožnja", route: !!S.route, ftp: settings.ftp, samples: S.samples, m };
+  pendingRide = { id: "r-" + S.startMs, start: S.startMs, name: S.workout ? S.workout.name : S.route ? S.route.name : "Slobodna vožnja", route: !!S.route, ftp: settings.ftp, maxHr: settings.maxHr,
+    samples: S.samples, m, laps: S.lap?.n ? [...S.laps, lapSummary(S.lap)] : [...S.laps] };
   $("#sum-title").textContent = pendingRide.name;
   $("#sum-sub").textContent = new Date(S.startMs).toLocaleString("hr-HR");
-  $("#sum-grid").innerHTML = [["Vrijeme", fmtTime(m.duration)], ["Prosjek", m.avgP + " W"], ["NP", m.np + " W"], ["TSS", m.tss], ["IF", m.IF], ["kJ", m.kj],
-    ["Najbolja min", m.best.m1 + " W"], ["Puls", m.avgHr ? m.avgHr + " bpm" : "–"], ["Udaljenost", (m.distance / 1000).toFixed(1) + " km"]]
-    .map(([k, v]) => `<div><small>${k}</small><b>${v}</b></div>`).join("");
+  $("#sum-grid").innerHTML = reportHeader(pendingRide); $("#sum-report").innerHTML = "";
   const ftpBox = $("#sum-ftp"); ftpBox.innerHTML = "";
   if(S.workout?.test === "ramp" && m.best.m1){
     const est = Math.round(m.best.m1 * .75);
@@ -1384,9 +1602,11 @@ function openSummary(){
   }
   $("#sum-resume").hidden = !!(S.workout && !currentSeg()) || !!(S.route && S.dist >= S.route.len);
   $("#dlg-summary").showModal();
+  renderReport($("#sum-report"), pendingRide);
 }
 function resetRide(){
   S.started = false; S.running = false; S.samples = []; S.t = 0; S.woT = 0; S.dist = 0; S.v = 0; S.lastSeg = -1; S.bias = 1; pendingRide = null;
+  S.laps = []; S.lap = null; S.hrP = null; S.hrOff = 0;
   applyControl(); render();
 }
 $("#sum-save").onclick = async () => {
@@ -1398,11 +1618,12 @@ $("#sum-discard").onclick = () => { if(confirm("Odbaciti vožnju bez spremanja?"
 $("#sum-resume").onclick = () => { $("#dlg-summary").close(); start(); };
 
 /* ============ settings ============ */
-function fillSettings(){ const f = $("#settings-form"); f.ftp.value = settings.ftp; f.weight.value = settings.weight; f.beep.checked = settings.beep; f.pauseVideo.checked = settings.pauseVideo; f.autoPause.checked = settings.autoPause; f.ytKey.value = settings.ytKey || ""; f.chainring.value = settings.chainring; f.cog.value = settings.cog; }
+function fillSettings(){ const f = $("#settings-form"); f.ftp.value = settings.ftp; f.weight.value = settings.weight; f.beep.checked = settings.beep; f.pauseVideo.checked = settings.pauseVideo; f.autoPause.checked = settings.autoPause; f.ytKey.value = settings.ytKey || ""; f.chainring.value = settings.chainring; f.cog.value = settings.cog; f.maxHr.value = settings.maxHr; f.voice.checked = settings.voice; }
 $("#settings-form").addEventListener("input", e => { const f = e.currentTarget;
   const ftp = +f.ftp.value, wt = +f.weight.value; if(ftp >= 80 && ftp <= 600) settings.ftp = ftp; if(wt >= 30 && wt <= 200) settings.weight = wt;
   settings.beep = f.beep.checked; settings.pauseVideo = f.pauseVideo.checked; settings.autoPause = f.autoPause.checked; settings.ytKey = f.ytKey.value.trim();
   const cr = +f.chainring.value, cg = +f.cog.value; if(cr >= 20 && cr <= 60) settings.chainring = cr; if(cg >= 10 && cg <= 30) settings.cog = cg;
+  const mh = +f.maxHr.value; if(mh >= 120 && mh <= 230) settings.maxHr = mh; settings.voice = f.voice.checked;
   store.set("settings", settings); });
 
 /* ============ navigation + wiring ============ */
@@ -1556,7 +1777,9 @@ $("#btn-click-cal").onclick = () => startCalibration();
 
 $("#btn-start").onclick = () => { if(!S.started || !S.running) { S.started && S.autoPaused ? resume() : start(); } else pause(false); render(); };
 $("#btn-end").onclick = () => { pause(false); openSummary(); };
-const bump = d => { const c = currentSeg(); if(!S.workout || c?.s.free){ S.gear = clamp(S.gear + d, 1, GEARS.length); } else { S.bias = clamp(Math.round((S.bias + d * .05) * 100) / 100, .5, 1.5); } applyControl(); render(); };
+const bump = d => { const c = currentSeg(); if(!S.workout || c?.s.free){ S.gear = clamp(S.gear + d, 1, GEARS.length); }
+  else if(c?.s.hr){ S.hrOff = clamp(S.hrOff + d * 2, -20, 20); }
+  else { S.bias = clamp(Math.round((S.bias + d * .05) * 100) / 100, .5, 1.5); } applyControl(); render(); };
 $("#bias-dn").onclick = () => bump(-1); $("#bias-up").onclick = () => bump(1);
 $("#gear-dn").onclick = () => bump(-1); $("#gear-up").onclick = () => bump(1);
 document.addEventListener("keydown", e => {
