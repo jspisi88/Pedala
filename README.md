@@ -1,6 +1,6 @@
 # Pedala
 
-Aplikacija za vožnju na trenažeru u pregledniku, bez instalacije i bez servera. Cijela aplikacija je jedna datoteka `index.html`.
+Aplikacija za vožnju na trenažeru u pregledniku, bez instalacije. Cijela aplikacija je jedna datoteka `index.html`. Jedini dio na serveru je mala Vercel funkcija `api/strava.js`, koja služi samo za slanje vožnji na Stravu.
 
 ## Što radi
 
@@ -9,6 +9,7 @@ Aplikacija za vožnju na trenažeru u pregledniku, bez instalacije i bez servera
 - **Slobodna vožnja i GPX rute:** 24 virtualne brzine sa Zwiftovim omjerima. Kod GPX rute trenažer prati nagib terena.
 - **YouTube video** uz vožnju: pretraga (uz besplatni API ključ) ili zalijepljen link.
 - **Povijest:** metrike svake vožnje (NP, IF, TSS, kJ, najbolje snage) i izvoz u `.FIT` za Stravu, intervals.icu ili GoldenCheetah.
+- **Strava:** svaka spremljena vožnja automatski ide na Stravu. Ako tablet nije na internetu, vožnja čeka i pošalje se kad se veza vrati.
 - **Napredak:** forma (CTL/ATL/TSB), tjedni volumen, najbolje snage i kretanje FTP-a.
 - **Sigurnosna kopija:** sve vožnje, treninzi, rute i postavke u jednoj `.json` datoteci.
 
@@ -27,13 +28,41 @@ Bez trenažera možeš isprobati aplikaciju preko **Spoji trenažer → Simulato
 
 ## Deploy na Vercel
 
-Ovo je statična stranica, pa ne treba build ni `vercel.json`:
+Ne treba build ni `vercel.json`. Vercel sam poslužuje `index.html`, a `api/strava.js` pokreće kao serverless funkciju.
 
 1. Na vercel.com odaberi **Add New → Project** i uvezi repozitorij `Pedala`.
 2. Framework Preset ostavi na **Other**, a Build Command i Output Directory ostavi prazne.
 3. Klikni **Deploy**. Vercel automatski daje `https://` adresu, pa Bluetooth radi.
 
 Svaki push na `main` automatski se ponovno deploya.
+
+## Strava
+
+Postavlja se jednom:
+
+1. Na <https://www.strava.com/settings/api> napravi aplikaciju:
+   - **Application Name:** npr. `Pedala`
+   - **Category:** Training
+   - **Website:** adresa tvog deploya, npr. `https://pedala.vercel.app`
+   - **Authorization Callback Domain:** samo domena, bez `https://`, npr. `pedala.vercel.app`
+2. Sa iste stranice prepiši **Client ID** i **Client Secret**.
+3. Na Vercelu otvori **Project → Settings → Environment Variables** i dodaj:
+   - `STRAVA_CLIENT_ID` = Client ID
+   - `STRAVA_CLIENT_SECRET` = Client Secret
+4. Pokreni **Redeploy**, jer se nove varijable vide tek u novom deployu.
+5. Na tabletu otvori **Postavke → Strava → Poveži Stravu** i odobri pristup. Kvačica za učitavanje aktivnosti mora ostati uključena.
+
+Kako radi:
+
+- Client Secret je samo na Vercelu i nikad ne dolazi na tablet. Na tabletu (`localStorage`, ključ `pedala.strava`) je samo pristupni token, koji se automatski obnavlja svakih 6 sati.
+- Nakon spremanja vožnje Pedala napravi `.FIT` i pošalje ga preko `api/strava.js` na Stravu. Vožnja se označi kao vožnja na trenažeru, a vožnja po GPX ruti kao virtualna vožnja.
+- Ako nema interneta, vožnja čeka u redu. Pošalje se kad se veza vrati, kad ponovno otvoriš aplikaciju ili nakon sljedećeg spremanja.
+- U Povijesti svaka vožnja ima gumb **Na Stravu**, **Šaljem…**, **Na Stravi ↗** (otvara aktivnost) ili **Ponovi Stravu** (kad je slanje palo). Tako se mogu poslati i starije vožnje.
+- Ako je vožnja već na Stravi, Strava je odbije kao duplikat, a Pedala je samo poveže s postojećom aktivnošću.
+- Automatsko slanje se isključuje u Postavkama. Tada ostaje ručni gumb u Povijesti.
+- Nova Strava aplikacija radi samo za račun koji ju je napravio („single player mode“), što je za osobnu upotrebu dovoljno.
+
+Na `localhost`-u Strava ne radi bez Vercela. Za lokalni test s funkcijom pokreni `npx vercel dev` (varijable u `.env.local`). Strava kao callback domenu uvijek dopušta i `localhost`.
 
 ## Gdje se spremaju podaci
 
@@ -88,5 +117,7 @@ U svim slučajevima IndexedDB ostaje lokalna baza, pa aplikacija radi i bez inte
 | `dbAll`, `dbPut`, `dbDel` | IndexedDB |
 | `pmc`, `drawProgress` | Kartica Napredak |
 | `exportBackup`, `importBackup` | Sigurnosna kopija |
+| `stravaConnect`, `syncStrava`, `stravaUpload` | Povezivanje sa Stravom i red slanja |
+| `api/strava.js` | Vercel funkcija: OAuth tokeni i upload na Stravu |
 
 Format uzorka u `ride.samples`: `[t, snaga W, kadenca, puls, brzina cm/s, udaljenost m]`, a za rute još `lat, lon, visina`.
