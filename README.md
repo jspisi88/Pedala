@@ -36,6 +36,23 @@ Ne treba build ni `vercel.json`. Vercel sam poslužuje `index.html`, a `api/inte
 
 Svaki push na `main` automatski se ponovno deploya.
 
+## Prijava
+
+Cijela stranica, uključujući `api/intervals.js`, zaključana je HTTP Basic Auth prijavom (`middleware.js`). Bez prijave nitko ne može otvoriti aplikaciju ni koristiti funkciju za slanje.
+
+Na Vercelu, u **Project → Settings → Environment Variables**, dodaj:
+
+| Varijabla | Vrijednost |
+|---|---|
+| `PEDALA_PASSWORD` | tvoja šifra (obavezno) |
+| `PEDALA_USER` | korisničko ime, ako ne želiš zadano `jspisic` |
+
+Zatim pokreni **Redeploy**. Dok `PEDALA_PASSWORD` nije postavljen, stranica nikoga ne pušta unutra.
+
+Preglednik pri prvom otvaranju pita za ime i šifru. Chrome ih može zapamtiti, pa ih ne moraš stalno upisivati.
+
+API ključevi (YouTube, intervals.icu) ionako nisu u kodu ni na serveru. Spremljeni su samo u pregledniku na tvom tabletu, pa ih drugi posjetitelji ne bi vidjeli ni bez prijave.
+
 ## intervals.icu
 
 [intervals.icu](https://intervals.icu) je besplatan servis za analizu treninga (forma, krivulja snage, zone). Postavlja se jednom:
@@ -111,5 +128,6 @@ U svim slučajevima IndexedDB ostaje lokalna baza, pa aplikacija radi i bez inte
 | `exportBackup`, `importBackup` | Sigurnosna kopija |
 | `icuSaveKey`, `syncIcu`, `icuUpload` | Povezivanje s intervals.icu i red slanja |
 | `api/intervals.js` | Vercel funkcija koja prosljeđuje upload na intervals.icu |
+| `middleware.js` | Prijava (Basic Auth) ispred cijele stranice |
 
 Format uzorka u `ride.samples`: `[t, snaga W, kadenca, puls, brzina cm/s, udaljenost m]`, a za rute još `lat, lon, visina`.
