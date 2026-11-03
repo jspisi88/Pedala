@@ -1,0 +1,9 @@
+{
+  "name": "pedala",
+  "private": true,
+  "description": "Trenažer, treninzi i video u pregledniku",
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "@vercel/blob": "^2.8.2"
+  }
+}
