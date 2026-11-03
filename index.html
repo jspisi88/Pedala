@@ -584,7 +584,8 @@ dialog.wide .sum{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}
       <p class="note">24 virtualne brzine s istim omjerima kao u Zwiftu (0.75 do 5.49). Otpor se računa iz nagiba, brzine i omjera virtualne brzine prema stvarnom omjeru lančanik/Cog, pa zato upiši koliko zubi imaju tvoj prednji lančanik i Cog.</p>
       <h2 class="section-title">Automatsko spajanje</h2>
       <p class="note">Trenažer, puls i Click koje si jednom spojio aplikacija sama spaja kad se upale. Prvi put ih spoji ručno.</p>
-      <p class="note" id="bt-auto-note" hidden>Ovaj Chrome ne pamti Bluetooth uređaje. Otvori <b>chrome://flags</b>, uključi <b>Use the new permissions backend for Web Bluetooth</b> i ponovno pokreni Chrome.</p>
+      <p class="note" id="bt-auto-note" hidden></p>
+      <div class="dlg-acts" style="justify-content:flex-start;margin:10px 0"><button class="btn small" type="button" id="btn-bt-auto">Potraži zapamćene uređaje</button></div>
       <h2 class="section-title">Zwift Click</h2>
       <p class="note">Spoji ga gumbom Click gore desno, nakon što ga odspojiš iz Zwifta. Click v2 ima dva dijela: spoji svaki posebno. Ako tipke rade krivo, postavi ih ispočetka.</p>
       <div class="dlg-acts" style="justify-content:flex-start;margin:10px 0"><button class="btn small" id="btn-click-cal" type="button">Postavi tipke ispočetka</button></div>
@@ -690,13 +691,21 @@ function parseBikeData(dv){
   return r;
 }
 
+/* gatt.connect() to a device that is off can wait for a very long time; give up after 12 s */
+function gattConnect(dev, ms = 12000){
+  return new Promise((res, rej) => {
+    const t = setTimeout(() => { try{ dev.gatt.disconnect(); }catch{} rej(new Error("Uređaj se ne javlja")); }, ms);
+    dev.gatt.connect().then(v => { clearTimeout(t); res(v); }, e => { clearTimeout(t); rej(e); });
+  });
+}
+
 class BleTrainer {
   constructor(onData, onStatus){ this.onData = onData; this.onStatus = onStatus; this.q = Promise.resolve(); this.lastPower = null; this.lastGrade = null; this.mode = null; }
   async connect(){ await this.attach(await navigator.bluetooth.requestDevice({ filters: [{ services: [FTMS] }] })); rememberDevice("trainer", this.device); }
   attach(dev){ this.device = dev; dev.addEventListener("gattserverdisconnected", () => this.reconnect()); return this.setup(); }
   async setup(){
     this.onStatus("wait", "Spajam…");
-    const server = await this.device.gatt.connect();
+    const server = await gattConnect(this.device);
     const svc = await server.getPrimaryService(FTMS);
     this.cp = await svc.getCharacteristic(CONTROL);
     await this.cp.startNotifications();               // indications must be on before writes
@@ -767,7 +776,7 @@ class BleHR {
   attach(dev){ this.device = dev; dev.addEventListener("gattserverdisconnected", () => this.reconnect()); return this.setup(); }
   async setup(){
     this.onStatus("wait", "Spajam…");
-    const s = await this.device.gatt.connect();
+    const s = await gattConnect(this.device);
     const c = await (await s.getPrimaryService(HR_SVC)).getCharacteristic(HR_MEAS);
     await c.startNotifications();
     c.oncharacteristicvaluechanged = e => { const v = e.target.value; this.onHR(v.getUint8(0) & 1 ? v.getUint16(1, true) : v.getUint8(1)); };
@@ -2233,7 +2242,7 @@ $("#settings-form").addEventListener("input", e => { const f = e.currentTarget;
 function showView(v){
   document.querySelectorAll(".tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.view === v));
   document.querySelectorAll(".view").forEach(el => el.classList.toggle("active", el.id === "view-" + v));
-  if(v === "plan") renderPlan(); if(v === "workouts") renderWorkouts(); if(v === "history") renderHistory(); if(v === "progress") renderProgress(); if(v === "settings"){ fillSettings(); renderIcu(); setSyncStatus(); } if(v === "ride") render();
+  if(v === "plan") renderPlan(); if(v === "workouts") renderWorkouts(); if(v === "history") renderHistory(); if(v === "progress") renderProgress(); if(v === "settings"){ fillSettings(); renderIcu(); setSyncStatus(); renderBtState(); } if(v === "ride") render();
 }
 document.querySelectorAll(".tabs button").forEach(b => b.onclick = () => showView(b.dataset.view));
 
@@ -2301,7 +2310,7 @@ class ZwiftClick {
   attach(dev){ this.device = dev; dev.addEventListener("gattserverdisconnected", () => this.reconnect()); return this.setup(); }
   async setup(){
     this.onStatus("wait", "Spajam Click…");
-    const srv = await this.device.gatt.connect();
+    const srv = await gattConnect(this.device);
     let svc; try{ svc = await srv.getPrimaryService(ZW.ride); this.kind = "ride"; }catch{ svc = await srv.getPrimaryService(ZW.v1); this.kind = "v1"; }
     this.rx = await svc.getCharacteristic(ZW.rx);
     for(const u of [ZW.async, ZW.tx]){
@@ -2348,26 +2357,70 @@ function rememberDevice(role, dev){
   if(role === "clicks"){ k.clicks = [...new Set([...(k.clicks || []), dev.id])].slice(-4); } else k[role] = dev.id;
   store.set("devices", k);
 }
-/* Reconnect devices this site was allowed to use before. Needs navigator.bluetooth.getDevices(),
-   which Chrome only exposes with persistent Bluetooth permissions. */
+/* Reconnect devices this site was allowed to use before. Needs navigator.bluetooth.getDevices(), which Chrome only
+   has with persistent Bluetooth permissions. For each remembered device the app waits until it advertises
+   (watchAdvertisements) and connects then; without that API it simply retries every few seconds. */
+const BT_ROLES = { trainer: "Trenažer", hr: "Puls", click: "Click" };
+const btState = { api: null, permitted: null, roles: {}, watching: new Set() };
 async function autoConnect(){
-  const note = $("#bt-auto-note");
-  if(!navigator.bluetooth?.getDevices){ if(note) note.hidden = false; return; }
-  let devs = []; try{ devs = await navigator.bluetooth.getDevices(); }catch{ return; }
-  const k = store.get("devices", {}), clicks = k.clicks || [];
+  btState.api = !!navigator.bluetooth?.getDevices;
+  const k = store.get("devices", {}), clicks = k.clicks || [], remembered = !!(k.trainer || k.hr || clicks.length);
+  if(!btState.api){ renderBtState(); if(remembered) btHint("Chrome ne pamti Bluetooth uređaje, pa se ne spajaju sami. Upute su u Postavkama, kod Automatskog spajanja."); return; }
+  let devs = [];
+  try{ devs = await navigator.bluetooth.getDevices(); }catch(e){ btState.error = e.message; }
+  btState.permitted = devs.length;
+  if(!devs.length && remembered) btHint("Chrome nije zapamtio dopuštenje za tvoje uređaje. Spoji ih jednom ručno i od tada će se spajati sami.");
   for(const dev of devs){
-    if(dev.id === k.trainer) waitFor(new BleTrainer(onData, trainerStatus), dev, () => !!S.trainer, t => { S.trainer = t; applyControl(); startClock(); toast("Trenažer spojen"); });
-    else if(dev.id === k.hr) waitFor(new BleHR(setHr, hrStatus), dev, () => !!S.hrm, h => { S.hrm = h; });
-    else if(clicks.includes(dev.id)) waitFor(new ZwiftClick(clickStatus), dev, () => S.clicks.some(z => z.device.id === dev.id), z => { S.clicks.push(z); clickStatus("on", "Click"); });
+    if(dev.id === k.trainer) watchDevice("trainer", dev, () => new BleTrainer(onData, trainerStatus), () => !!S.trainer, t => { S.trainer = t; applyControl(); startClock(); toast("Trenažer spojen"); });
+    else if(dev.id === k.hr) watchDevice("hr", dev, () => new BleHR(setHr, hrStatus), () => !!S.hrm, h => { S.hrm = h; });
+    else if(clicks.includes(dev.id)) watchDevice("click", dev, () => new ZwiftClick(clickStatus), () => S.clicks.some(z => z.device.id === dev.id), z => { S.clicks.push(z); clickStatus("on", "Click"); });
   }
+  renderBtState();
 }
-/* keep trying while the device is off or asleep, stop if it got connected by hand */
-async function waitFor(obj, dev, already, onOk){
-  for(let i = 0; i < 400 && !already(); i++){
-    try{ obj.device = dev; await obj.setup(); dev.addEventListener("gattserverdisconnected", () => obj.reconnect()); onOk(obj); return; }catch{}
-    await new Promise(r => setTimeout(r, 3000));
+function btHint(msg){ if(!btHint.shown){ btHint.shown = true; notify(msg); } }
+/* connect a remembered device as soon as it shows up; stop once connected (or connected by hand) */
+async function watchDevice(role, dev, make, already, onOk){
+  if(btState.watching.has(dev.id) || already()) return;
+  btState.watching.add(dev.id); btState.roles[role] = "čeka da se uređaj upali";
+  let busy = false, again = false, done = false, poll = null;
+  const ac = "AbortController" in window ? new AbortController() : null;
+  const onAdv = () => tryNow(true);
+  const finish = () => { done = true; clearInterval(poll); ac?.abort(); dev.removeEventListener("advertisementreceived", onAdv); btState.watching.delete(dev.id); };
+  async function tryNow(seen){
+    if(done) return;
+    if(busy){ if(seen) again = true; return; }        // it just showed up: try again as soon as the current attempt ends
+    if(already()){ btState.roles[role] = "spojen"; finish(); renderBtState(); return; }
+    busy = true;
+    const obj = make();
+    try{
+      obj.device = dev; await obj.setup();
+      dev.addEventListener("gattserverdisconnected", () => obj.reconnect());
+      btState.roles[role] = "spojen"; finish(); onOk(obj);
+    }catch(e){ btState.roles[role] = "čeka da se uređaj upali"; obj.onStatus("wait", `Čekam: ${BT_ROLES[role]}`); }
+    finally{ busy = false; renderBtState(); if(again && !done){ again = false; setTimeout(() => tryNow(true), 0); } }
   }
+  dev.addEventListener("advertisementreceived", onAdv);
+  let watching = false;
+  if(dev.watchAdvertisements){ try{ await dev.watchAdvertisements(ac ? { signal: ac.signal } : undefined); watching = true; }catch(e){ console.warn("watchAdvertisements", e); } }
+  if(!already()) make().onStatus("wait", `Čekam: ${BT_ROLES[role]}`);   // shows on the chip that it is looking
+  if(!watching) tryNow();                                        // without advertisements: try now and keep trying
+  poll = setInterval(() => tryNow(false), watching ? 30000 : 5000);   // with them this is only a safety net
+  setTimeout(() => { if(!done){ finish(); btState.roles[role] = "nije se javio (otvori aplikaciju ponovno)"; renderBtState(); } }, 30 * 60000);
 }
+function renderBtState(){
+  const el = $("#bt-auto-note"); if(!el) return;
+  const k = store.get("devices", {}), names = [k.trainer && "trenažer", k.hr && "pulsmetar", (k.clicks || []).length && "Click"].filter(Boolean);
+  let html;
+  if(btState.api === false) html = `<b>Ovaj Chrome ne pamti Bluetooth uređaje.</b> Otvori <b>chrome://flags</b>, potraži <b>Use the new permissions backend for Web Bluetooth</b>, postavi na <b>Enabled</b> i ponovno pokreni Chrome. Zatim jednom ručno spoji trenažer, puls i Click.`;
+  else if(!names.length) html = "Još nijedan uređaj nije zapamćen. Spoji ga jednom ručno gumbom gore desno.";
+  else if(btState.permitted === 0) html = `Zapamćeno: ${names.join(", ")}, ali Chrome nije sačuvao dopuštenje. Spoji ih jednom ručno; ako se nakon ponovnog otvaranja opet ne spajaju, uključi <b>chrome://flags → Use the new permissions backend for Web Bluetooth</b>.`;
+  else html = `Zapamćeno: ${names.join(", ")}. ` + Object.entries(btState.roles).map(([r, t]) => `${BT_ROLES[r]}: ${t}`).join(" · ");
+  el.innerHTML = html; el.hidden = false;
+}
+$("#btn-bt-auto").onclick = () => { btHint.shown = false; autoConnect(); };
+/* coming back to the app (screen was off, app in background): look for devices that are not connected */
+document.addEventListener("visibilitychange", () => { if(document.visibilityState === "visible" && (!S.trainer || !S.hrm)) autoConnect(); });
+
 $("#chip-click").onclick = async () => {
   if(!navigator.bluetooth){ toast("Ovaj preglednik nema Web Bluetooth"); return; }
   const status = clickStatus;
