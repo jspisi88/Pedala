@@ -227,6 +227,29 @@ dialog.wide .sum{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}
 .laps td{padding:5px 8px;border-bottom:1px solid var(--line)}
 .laps .hit{color:var(--z3)} .laps .miss{color:var(--z5)}
 @media (max-width: 640px){ .rep .two{grid-template-columns:1fr} }
+.tabs .ti{display:none}
+.plan-card{background:var(--panel);border-radius:14px;padding:14px 16px;margin-bottom:12px}
+.plan-card h3{margin:0 0 2px;font:600 22px/1.15 var(--num)}
+.plan-card p{margin:4px 0;color:var(--muted);font-size:14px}
+.plan-card .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px}
+.plan-card input,.plan-card select{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:7px 10px;color:var(--text)}
+.pbar{height:10px;border-radius:6px;background:var(--panel2);overflow:hidden;margin:8px 0 4px}
+.pbar i{display:block;height:100%;background:var(--z3)}
+.pstats{display:flex;gap:16px;flex-wrap:wrap;font-size:14px;color:var(--muted)}
+.pstats b{color:var(--text);font:600 20px/1 var(--num);margin-right:3px}
+.weeks{display:flex;flex-direction:column;gap:8px}
+.week{background:var(--panel);border-radius:12px;padding:10px 12px}
+.week.now{outline:2px solid var(--z2)}
+.week h4{margin:0 0 6px;font:600 16px/1.2 var(--num);display:flex;justify-content:space-between;gap:8px}
+.week h4 small{font:500 12px/1.4 var(--ui);color:var(--muted)}
+.sess{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.sess button{text-align:left;border:1px solid var(--line);background:var(--panel2);border-radius:10px;padding:6px 8px;color:var(--text);font-size:13px;min-width:0}
+.sess button b{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sess button small{color:var(--muted)}
+.sess .done{border-color:var(--z3);background:rgba(47,191,113,.16)}
+.sess .missed{border-color:var(--z5)}
+.sess .skipped{opacity:.45}
+.sess .today{outline:2px solid var(--z2);outline-offset:1px}
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:10px 16px;border-radius:12px;font-weight:600;z-index:50;opacity:0;pointer-events:none;transition:opacity .25s}
 .toast.show{opacity:1}
 
@@ -329,6 +352,8 @@ dialog.wide .sum{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}
   .top{gap:6px 8px;padding-left:10px;padding-right:10px}
   .tabs{order:3;flex:1 1 100%;min-width:0;justify-content:space-between}
   .tabs button{flex:1 1 0;min-width:0;padding:6px 2px;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tabs button[data-view="settings"]{flex:0 0 38px}
+  .tabs .tl{display:none} .tabs .ti{display:inline}
   .brand{font-size:19px}
   .chip{padding:4px 9px;font-size:13px}
   .form{grid-template-columns:1fr}
@@ -348,10 +373,11 @@ dialog.wide .sum{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}
     <div class="brand">Ped<span>ala</span></div>
     <nav class="tabs" role="tablist">
       <button role="tab" data-view="ride" aria-selected="true">Vožnja</button>
+      <button role="tab" data-view="plan" aria-selected="false">Plan</button>
       <button role="tab" data-view="workouts" aria-selected="false">Treninzi</button>
       <button role="tab" data-view="history" aria-selected="false">Povijest</button>
       <button role="tab" data-view="progress" aria-selected="false">Napredak</button>
-      <button role="tab" data-view="settings" aria-selected="false">Postavke</button>
+      <button role="tab" data-view="settings" aria-selected="false" aria-label="Postavke"><span class="tl">Postavke</span><span class="ti" aria-hidden="true">⚙</span></button>
     </nav>
     <div class="spacer"></div>
     <button class="chip" id="chip-trainer"><span class="dot"></span><span>Spoji trenažer</span></button>
@@ -451,6 +477,14 @@ dialog.wide .sum{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}
     </section>
   </main>
 
+  <!-- PLAN -->
+  <main class="view" id="view-plan">
+    <div class="scroll"><div class="wrap">
+      <h1>Plan</h1>
+      <div id="plan-body"></div>
+    </div></div>
+  </main>
+
   <!-- WORKOUTS -->
   <main class="view" id="view-workouts">
     <div class="scroll"><div class="wrap">
@@ -540,6 +574,9 @@ dialog.wide .sum{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}
       <div class="field" style="max-width:520px;margin:10px 0"><input id="icu-key" type="text" autocomplete="off" spellcheck="false" placeholder="API ključ" aria-label="intervals.icu API ključ"><button class="btn small" id="btn-icu" type="button">Spremi i provjeri</button></div>
       <p class="note" id="icu-status"></p>
       <label class="check note" style="display:flex"><input type="checkbox" id="icu-auto"> Automatski pošalji svaku spremljenu vožnju na intervals.icu</label>
+      <h2 class="section-title">Sinkronizacija</h2>
+      <p class="note" id="sync-status">Provjeravam…</p>
+      <div class="dlg-acts" style="justify-content:flex-start;margin:10px 0"><button class="btn small" type="button" id="btn-sync">Sinkroniziraj sada</button></div>
       <h2 class="section-title">Prijava</h2>
       <p class="note">Ovaj uređaj ostaje prijavljen godinu dana, i kad zatvoriš aplikaciju. Promjena lozinke na Vercelu (PEDALA_PASSWORD) odjavljuje sve uređaje.</p>
       <div class="dlg-acts" style="justify-content:flex-start;margin:10px 0"><a class="btn small danger" href="/__logout">Odjavi se s ovog uređaja</a></div>
@@ -589,6 +626,13 @@ dialog.wide .sum{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}
   <div class="dlg-acts" style="margin-top:16px"><button class="btn" data-close>Zatvori</button></div>
 </dialog>
 
+<dialog id="dlg-sess">
+  <h2 id="sess-title"></h2>
+  <p id="sess-sub"></p>
+  <canvas id="sess-prof" style="display:block;width:100%;height:70px;margin-bottom:14px"></canvas>
+  <div class="dlg-acts" id="sess-acts"></div>
+</dialog>
+
 <dialog id="dlg-click">
   <h2>Postavi tipke na Clicku</h2>
   <p id="clk-step">Pritisni tipku za težu brzinu (+).</p>
@@ -607,9 +651,17 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const fmtTime = s => { s = Math.max(0, Math.round(s)); const h = Math.floor(s/3600), m = Math.floor(s%3600/60), x = s%60;
   return h ? `${h}:${String(m).padStart(2,"0")}:${String(x).padStart(2,"0")}` : `${m}:${String(x).padStart(2,"0")}`; };
 function toast(msg){ const t=$("#toast"); t.textContent=msg; t.classList.add("show"); clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove("show"),2600); }
+/* keys shared between devices through api/sync.js; each change is time-stamped so the newest one wins */
+const SYNCED = ["settings", "plan", "workouts", "routes"];
 const store = {
   get(k, d){ try{ const v = localStorage.getItem("pedala."+k); return v==null ? d : JSON.parse(v); }catch{ return d; } },
-  set(k, v){ try{ localStorage.setItem("pedala."+k, JSON.stringify(v)); return true; }catch{ return false; } }
+  set(k, v){
+    try{
+      localStorage.setItem("pedala."+k, JSON.stringify(v));
+      if(SYNCED.includes(k) && !store.quiet){ const at = store.get("syncAt", {}); at[k] = Date.now(); localStorage.setItem("pedala.syncAt", JSON.stringify(at)); syncSoon(); }
+      return true;
+    }catch{ return false; }
+  }
 };
 const settings = Object.assign({ ftp: 230, weight: 80, chainring: 34, cog: 14, clickMap: {}, beep: true, pauseVideo: true, autoPause: true, maxHr: 185, voice: true }, store.get("settings", {}));
 /* heart-rate zones as fractions of max HR: [upper bound, colour, name] */
@@ -783,8 +835,8 @@ function parseZwo(text, fileName){
     } else if(t === "steadystate" || t === "solidstate"){
       let p = num(el, "Power"); if(isNaN(p)){ const lo = num(el,"PowerLow"), hi = num(el,"PowerHigh"); p = (lo + hi) / 2; }
       if(d > 0 && !isNaN(p)) segs.push({ d, lo: p, hi: p, cad: cadOf(num(el, "Cadence")) });
-    } else if(t === "intervalst"){
-      const n = num(el,"Repeat") || 1, on = num(el,"OnDuration"), off = num(el,"OffDuration");
+    } else if(t === "intervalst" || t === "intervals"){
+      const n = num(el,"Repeat","Reps") || 1, on = num(el,"OnDuration"), off = num(el,"OffDuration");
       let onP = num(el,"OnPower"), offP = num(el,"OffPower");
       if(isNaN(onP)) onP = (num(el,"PowerOnLow") + num(el,"PowerOnHigh")) / 2;
       if(isNaN(offP)) offP = (num(el,"PowerOffLow") + num(el,"PowerOffHigh")) / 2;
@@ -802,6 +854,7 @@ function parseZwo(text, fileName){
 
 const totalDur = w => w.segs.reduce((a, s) => a + s.d, 0);
 const allWorkouts = () => [...BUILTIN, ...store.get("workouts", [])];
+const findWorkout = id => allWorkouts().find(w => w.id === id) || PLAN_WO[id] || null;
 const segFrac = (w, s, frac) => s.lo + (s.hi - s.lo) * frac;
 const toWatts = (w, v) => w.abs ? v : v * settings.ftp;
 
@@ -1606,13 +1659,15 @@ async function renderHistory(){
   for(const r of rides){
     const el = document.createElement("div"); el.className = "item"; const m = r.m;
     el.innerHTML = `<div><h3></h3><div class="metrics"><span><b>${fmtTime(m.duration)}</b></span><span><b>${m.avgP}</b>W prosj.</span><span><b>${m.np}</b>NP</span><span><b>${m.tss}</b>TSS</span><span><b>${m.IF}</b>IF</span>${m.avgHr ? `<span><b>${m.avgHr}</b>bpm</span>` : ""}<span><b>${(m.distance/1000).toFixed(1)}</b>km</span></div>
+      ${r.icu?.status === "error" ? `<p style="color:var(--z5)">intervals.icu: ${String(r.icu.error).replace(/[<>&]/g, "")}</p>` : ""}
       <p>Najbolje: 5 s ${m.best.s5} W · 1 min ${m.best.m1} W · 5 min ${m.best.m5 || "–"} W · 20 min ${m.best.m20 || "–"} W</p></div>
       <div class="acts"><button class="btn small primary" data-rep>Izvještaj</button>${icuButton(r)}<button class="btn small" data-fit>.FIT</button><button class="btn small danger" data-del>Obriši</button></div><canvas></canvas>`;
     el.querySelector("h3").textContent = `${r.name} · ${new Date(r.start).toLocaleDateString("hr-HR", { weekday: "short", day: "numeric", month: "numeric" })} ${new Date(r.start).toLocaleTimeString("hr-HR", { hour: "2-digit", minute: "2-digit" })}`;
     el.querySelector("[data-fit]").onclick = () => downloadFit(r);
     el.querySelector("[data-rep]").onclick = () => openReport(r);
     el.querySelector("[data-icu]")?.addEventListener("click", () => queueIcu(r));
-    el.querySelector("[data-del]").onclick = async () => { if(confirm("Obrisati ovu vožnju?")){ await dbDel(r.id); renderHistory(); } };
+    el.querySelector("[data-del]").onclick = async () => { if(confirm("Obrisati ovu vožnju? Obrisat će se i na drugim uređajima.")){
+      await dbDel(r.id); store.set("syncDeleted", [...store.get("syncDeleted", []), r.id]); syncSoon(); renderHistory(); } };
     list.append(el);
     requestAnimationFrame(() => { const cv = el.querySelector("canvas"); const [g, W, H] = sizeCanvas(cv); const n = r.samples.length;
       for(let i = 0; i < n; i += Math.max(1, Math.floor(n / W))){ const f = r.samples[i][1] / r.ftp; g.fillStyle = zoneColor(f); g.fillRect(i / n * W, H - Math.min(1, f / 1.6) * H, Math.max(1, W / n + .5), H); } });
@@ -1809,6 +1864,241 @@ $("#icu-auto").onchange = e => { settings.icuAuto = e.target.checked; store.set(
 window.addEventListener("online", () => syncIcu());
 document.addEventListener("visibilitychange", () => { if(document.visibilityState === "visible") syncIcu(); });
 
+/* ============ training plan ============
+   "Održivi 14 tjedana", adapted: the Tuesday threshold and Thursday VO2max sessions last 30 minutes at most
+   and get harder through density instead of length; the Sunday Zone 2 ride grows from 50 min to 3 h.
+   Weeks 4, 8 and 12 are deload weeks, week 14 ends with a ramp test. */
+const PS = (d, lo, hi = lo) => ({ d, lo, hi });
+const reps = (n, ...segs) => Array.from({ length: n }, () => segs).flat();
+const PWU = d => PS(d, .5, .75), PCD = d => PS(d, .6, .45);
+const PLAN_WO = Object.fromEntries([
+  ["t1", "Over-Under", "3 bloka po 4 min: 30 s na 105% pa 30 s na 95% FTP-a, 2 min odmora između.", [PWU(360), ...reps(4, PS(30, 1.05), PS(30, .95)), PS(120, .5), ...reps(4, PS(30, 1.05), PS(30, .95)), PS(120, .5), ...reps(4, PS(30, 1.05), PS(30, .95)), PCD(240)]],
+  ["t2", "Sustained FTP", "2 × 7 min na 95% FTP-a.", [PWU(360), PS(420, .95), PS(180, .5), PS(420, .95), PCD(240)]],
+  ["t3", "Hard Threshold", "3 × 5 min na 100% FTP-a, 2 min odmora.", [PWU(360), ...reps(2, PS(300, 1), PS(120, .5)), PS(300, 1), PCD(240)]],
+  ["t5", "Over-Under 2.0", "3 × 4 min: minuta na 105% pa minuta na 95% FTP-a.", [PWU(360), ...reps(2, PS(60, 1.05), PS(60, .95)), PS(120, .5), ...reps(2, PS(60, 1.05), PS(60, .95)), PS(120, .5), ...reps(2, PS(60, 1.05), PS(60, .95)), PCD(240)]],
+  ["t6", "Sustained 2.0", "2 × 8 min na 97% FTP-a, 2 min odmora.", [PWU(360), PS(480, .97), PS(120, .5), PS(480, .97), PCD(240)]],
+  ["t7", "Hard Threshold 2.0", "2 × 9 min na 100% FTP-a.", [PWU(300), PS(540, 1), PS(120, .5), PS(540, 1), PCD(240)]],
+  ["t9", "Over-Under Hard", "2 × 8 min: minuta na 108% pa minuta na 95% FTP-a.", [PWU(300), ...reps(4, PS(60, 1.08), PS(60, .95)), PS(180, .5), ...reps(4, PS(60, 1.08), PS(60, .95)), PCD(240)]],
+  ["t10", "FTP Piramida", "4, 6 i 4 min na 100% FTP-a, 2 min odmora.", [PWU(300), PS(240, 1), PS(120, .5), PS(360, 1), PS(120, .5), PS(240, 1), PCD(240)]],
+  ["t11", "FTP Time Trial", "20 min u komadu na 98% FTP-a.", [PWU(300), PS(1200, .98), PCD(240)]],
+  ["t13", "FTP Sustained", "2 × 6 min na 95% FTP-a. Lakše, pred završni test.", [PWU(360), PS(360, .95), PS(180, .5), PS(360, .95), PCD(240)]],
+  ["v1", "VO2 Max 30/30", "2 × 6 × (30 s na 120%, 30 s na 50%).", [PWU(360), ...reps(6, PS(30, 1.2), PS(30, .5)), PS(180, .5), ...reps(6, PS(30, 1.2), PS(30, .5)), PCD(240)]],
+  ["v2", "VO2 Max 1 min", "8 × (1 min na 115%, 1 min lagano).", [PWU(360), ...reps(8, PS(60, 1.15), PS(60, .5)), PCD(240)]],
+  ["v3", "VO2 Max 2 min", "5 × (2 min na 112%, 2 min lagano).", [PWU(360), ...reps(5, PS(120, 1.12), PS(120, .5)), PCD(240)]],
+  ["v5", "VO2 Max 3 min", "4 × (3 min na 110%, 2 min lagano).", [PWU(360), ...reps(4, PS(180, 1.1), PS(120, .5)), PCD(240)]],
+  ["v6", "VO2 Max Piramida", "1-2-3-2-1 min na 112%, odmor jednak naporu.", [PWU(360), PS(60, 1.12), PS(60, .5), PS(120, 1.12), PS(120, .5), PS(180, 1.12), PS(120, .5), PS(120, 1.12), PS(60, .5), PS(60, 1.12), PCD(240)]],
+  ["v7", "VO2 Max 40/20", "2 × 8 × (40 s na 120%, 20 s lagano).", [PWU(360), ...reps(8, PS(40, 1.2), PS(20, .5)), PS(180, .5), ...reps(8, PS(40, 1.2), PS(20, .5)), PCD(240)]],
+  ["v9", "VO2 Max 4 min", "3 × (4 min na 108%, 2,5 min lagano).", [PWU(300), ...reps(3, PS(240, 1.08), PS(150, .5)), PCD(240)]],
+  ["v10", "VO2 Max 30/15", "2 × 10 × (30 s na 125%, 15 s lagano).", [PWU(300), ...reps(10, PS(30, 1.25), PS(15, .5)), PS(180, .5), ...reps(10, PS(30, 1.25), PS(15, .5)), PCD(240)]],
+  ["v11", "VO2 Max Extreme", "5 × (2 min na 118%, 1,5 min lagano).", [PWU(300), ...reps(5, PS(120, 1.18), PS(90, .5)), PCD(240)]],
+  ["v13", "VO2 Max Light", "6 × (1 min na 110%, 1 min lagano). Lakše, pred završni test.", [PWU(360), ...reps(6, PS(60, 1.1), PS(60, .5)), PCD(240)]],
+  ["rec", "Aktivni oporavak", "20 minuta laganog okretanja na 52% FTP-a.", [PS(1200, .52)]],
+  ["op", "Openers", "Lagano, s dva kratka buđenja od 1 minute na FTP-u.", [PS(600, .5, .7), PS(60, 1), PS(120, .5), PS(60, 1), PCD(660)]],
+  ...[50, 60, 65, 75, 80, 95, 110, 125, 140, 155, 170, 180].map(m => [`z${m}`, `Zona 2 · ${m >= 120 ? (m / 60).toFixed(m % 60 ? 1 : 0).replace(".", ",") + " h" : m + " min"}`,
+    "Mirna vožnja u zoni 2 (65% FTP-a). Razgovorni tempo, kadenca 85–95.", [PS(600, .5, .65), PS(m * 60 - 900, .65), PCD(300)]]),
+].map(([k, name, desc, segs]) => ["p-" + k, { id: "p-" + k, cat: "plan", name, desc, segs }]));
+PLAN_WO["b-ramp"] = BUILTIN.find(w => w.id === "b-ramp");
+const PLAN = { id: "odrzivi14", name: "Održivi 14 tjedana", weeks: [
+  ["t1", "v1", "z50"], ["t2", "v2", "z65"], ["t3", "v3", "z80"], ["rec", "op", "z50"],
+  ["t5", "v5", "z95"], ["t6", "v6", "z110"], ["t7", "v7", "z125"], ["rec", "op", "z60"],
+  ["t9", "v9", "z140"], ["t10", "v10", "z155"], ["t11", "v11", "z170"], ["rec", "op", "z75"],
+  ["t13", "v13", "z180"], ["rec", "op", "b-ramp"]], deload: [4, 8, 12, 14] };
+const PLAN_DAYS = [["tue", 1, "Uto"], ["thu", 3, "Čet"], ["sun", 6, "Ned"]];
+
+const plan = () => store.get("plan", null);
+const ymd = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const fromYmd = t => { const [y, m, d] = t.split("-").map(Number); return new Date(y, m - 1, d); };
+const plusDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+const shortDay = d => d.toLocaleDateString("hr-HR", { weekday: "short", day: "numeric", month: "numeric" });
+function nextMonday(){ const d = new Date(); d.setHours(0, 0, 0, 0); return plusDays(d, ((8 - d.getDay()) % 7) || 7); }
+/* every session of the running plan with its date and state */
+function planSessions(p = plan()){
+  if(!p) return [];
+  const start = fromYmd(p.start), today = ymd(new Date()), out = [];
+  PLAN.weeks.forEach((wk, i) => PLAN_DAYS.forEach(([day, off, label], j) => {
+    const date = plusDays(start, i * 7 + off), w = PLAN_WO[wk[j].startsWith("b-") ? wk[j] : "p-" + wk[j]], id = `w${i + 1}-${day}`, d = ymd(date);
+    out.push({ id, week: i + 1, day, label, date, d, w, done: !!p.done?.[id], skipped: !!p.skipped?.[id], today: d === today, past: d < today });
+  }));
+  return out;
+}
+function planUpdate(fn){ const p = plan(); if(!p) return; fn(p); store.set("plan", p); renderPlan(); }
+/* a saved ride of a plan workout ticks off the nearest open session with that workout (±4 days) */
+function planMarkRide(r){
+  if(!r.workoutId || !plan() || r.m.duration < 600) return null;
+  const t = r.start, open = planSessions().filter(x => x.w?.id === r.workoutId && !x.done && Math.abs(x.date - t) < 4.5 * 864e5);
+  const s = open.sort((a, b) => Math.abs(a.date - t) - Math.abs(b.date - t))[0];
+  if(s) planUpdate(p => { p.done = { ...p.done, [s.id]: r.id }; if(p.skipped) delete p.skipped[s.id]; });
+  return s || null;
+}
+const woMin = w => Math.round(totalDur(w) / 60);
+function rideSession(s){ setWorkout(s.w); $("#dlg-sess").open && $("#dlg-sess").close(); }
+
+function renderPlan(){
+  const box = $("#plan-body"), p = plan();
+  if(!p){
+    const tw = PLAN.weeks.map(w => w.map(k => PLAN_WO[k.startsWith("b-") ? k : "p-" + k]));
+    box.innerHTML = `<div class="plan-card"><h3>${PLAN.name}</h3>
+      <p>Utorkom prag (threshold), četvrtkom VO2max, oba do 30 minuta: teže postaju gušćim intervalima, ne dužim treningom. Nedjeljom vožnja u zoni 2 raste od 50 minuta do 3 sata. Tjedni 4, 8 i 12 su lakši, a 14. završava ramp testom.</p>
+      <p>Najduži trening preko tjedna: ${Math.max(...tw.flatMap(w => w.slice(0, 2)).map(woMin))} min · najduža nedjelja: ${Math.max(...tw.map(w => woMin(w[2])))} min · ukupno ${tw.length * 3} treninga.</p>
+      <div class="row"><label>Početak (ponedjeljak) <input type="date" id="plan-start" value="${ymd(nextMonday())}"></label><button class="btn primary" id="plan-go">Pokreni plan</button></div></div>`;
+    $("#plan-go").onclick = () => { const v = $("#plan-start").value; if(!v) return;
+      const d = fromYmd(v); if(d.getDay() !== 1 && !confirm("Plan je složen od ponedjeljka. Ipak krenuti od " + shortDay(d) + "?")) return;
+      store.set("plan", { id: PLAN.id, start: v, done: {}, skipped: {}, times: { wk: "18:00", sun: "09:00" }, remind: 120 }); renderPlan(); };
+    return;
+  }
+  const ss = planSessions(p), done = ss.filter(x => x.done), missed = ss.filter(x => x.past && !x.done && !x.skipped);
+  const week = Math.min(PLAN.weeks.length, Math.max(1, Math.floor((new Date() - fromYmd(p.start)) / (7 * 864e5)) + 1));
+  const next = ss.find(x => !x.done && !x.skipped && !x.past), hours = done.reduce((a, x) => a + totalDur(x.w), 0) / 3600;
+  const started = new Date() >= fromYmd(p.start), end = plusDays(fromYmd(p.start), PLAN.weeks.length * 7 - 1);
+  box.innerHTML = `<div class="plan-card"><h3>${PLAN.name}</h3>
+      <p>${started ? `Tjedan ${week} od ${PLAN.weeks.length}` : `Počinje ${shortDay(fromYmd(p.start))}`} · ${shortDay(fromYmd(p.start))} – ${shortDay(end)}</p>
+      <div class="pbar"><i style="width:${Math.round(done.length / ss.length * 100)}%"></i></div>
+      <div class="pstats"><span><b>${done.length}</b>od ${ss.length} odrađeno</span><span><b>${missed.length}</b>propušteno</span><span><b>${hours.toFixed(1).replace(".", ",")}</b>h vožnje</span>${done.length + missed.length ? `<span><b>${Math.round(done.length / (done.length + missed.length) * 100)}%</b>dosljednost</span>` : ""}</div></div>
+    ${next ? `<div class="plan-card"><p>${next.today ? "Danas" : shortDay(next.date)} · ${next.label === "Ned" ? "duga vožnja" : next.label === "Uto" ? "prag" : "VO2max"}</p>
+      <h3>${next.w.name}${/\d (min|h)$/.test(next.w.name) ? "" : ` · ${woMin(next.w)} min`}</h3><p>${next.w.desc}</p>
+      <div class="row"><button class="btn primary" id="plan-ride">Vozi sada</button><button class="btn small" id="plan-next-more">Više</button></div></div>` : `<div class="plan-card"><h3>Plan je završen 🎉</h3><p>Odradi ramp test ako već nisi i postavi novi FTP.</p></div>`}
+    <div class="weeks" id="plan-weeks"></div>
+    <div class="plan-card" style="margin-top:12px"><h3>Kalendar i podsjetnik</h3>
+      <p>Preuzmi plan kao kalendar (.ics) i uvezi ga u Google Kalendar. Svaki trening dobiva podsjetnik prije početka.</p>
+      <div class="row">
+        <label>Uto i Čet u <input type="time" id="plan-twk" value="${p.times?.wk || "18:00"}"></label>
+        <label>Nedjeljom u <input type="time" id="plan-tsun" value="${p.times?.sun || "09:00"}"></label>
+        <label>Podsjetnik <select id="plan-remind">${[[30, "30 min"], [60, "1 h"], [120, "2 h"], [240, "4 h"], [720, "12 h"]].map(([v, t]) => `<option value="${v}"${v === (p.remind || 120) ? " selected" : ""}>${t}</option>`).join("")}</select> prije</label>
+      </div>
+      <div class="row"><button class="btn" id="plan-ics">Preuzmi kalendar (.ics)</button></div>
+      <p style="margin-top:10px">Google Kalendar kod uvoza zanemaruje podsjetnike iz datoteke, pa ga postavi ovako: na računalu u Google Kalendaru napravi novi kalendar <b>Pedala</b>, u njegovim postavkama pod <b>Obavijesti o događajima</b> dodaj obavijest (npr. 2 sata prije), pa <b>Postavke → Uvoz i izvoz</b> uvezi datoteku u kalendar Pedala. Samsung Kalendar i Outlook čitaju podsjetnik iz same datoteke.</p></div>
+    <div class="plan-card"><div class="row" style="margin-top:0"><button class="btn small" id="plan-restart">Promijeni početak</button><button class="btn small danger" id="plan-stop">Završi plan</button></div></div>`;
+  const weeks = $("#plan-weeks");
+  PLAN.weeks.forEach((_, i) => {
+    const wk = ss.filter(x => x.week === i + 1), el = document.createElement("div");
+    el.className = "week" + (started && i + 1 === week ? " now" : "");
+    el.innerHTML = `<h4><span>Tjedan ${i + 1}${PLAN.deload.includes(i + 1) ? (i === 13 ? " · test" : " · lakši") : ""}</span><small>${shortDay(wk[0].date)} – ${shortDay(wk[2].date)}</small></h4><div class="sess"></div>`;
+    for(const x of wk){
+      const b = document.createElement("button"); b.type = "button";
+      b.className = [x.done && "done", x.skipped && "skipped", !x.done && !x.skipped && x.past && "missed", x.today && "today"].filter(Boolean).join(" ");
+      b.innerHTML = `<small>${x.label} ${x.date.getDate()}.${x.date.getMonth() + 1}. ${x.done ? "✓" : x.skipped ? "–" : ""}</small><b></b><small>${woMin(x.w)} min</small>`;
+      b.querySelector("b").textContent = x.w.name; b.onclick = () => openSession(x);
+      el.querySelector(".sess").append(b);
+    }
+    weeks.append(el);
+  });
+  if(next){ $("#plan-ride").onclick = () => rideSession(next); $("#plan-next-more").onclick = () => openSession(next); }
+  const saveTimes = () => planUpdate(q => { q.times = { wk: $("#plan-twk").value || "18:00", sun: $("#plan-tsun").value || "09:00" }; q.remind = +$("#plan-remind").value; });
+  ["#plan-twk", "#plan-tsun", "#plan-remind"].forEach(id => $(id).onchange = saveTimes);
+  $("#plan-ics").onclick = () => downloadIcs();
+  $("#plan-restart").onclick = () => { const v = prompt("Novi početak plana (GGGG-MM-DD, ponedjeljak):", p.start); if(v && /^\d{4}-\d{2}-\d{2}$/.test(v)) planUpdate(q => { q.start = v; }); };
+  $("#plan-stop").onclick = () => { if(confirm("Završiti plan? Vožnje ostaju u Povijesti.")){ store.set("plan", null); renderPlan(); } };
+}
+function openSession(x){
+  $("#sess-title").textContent = x.w.name;
+  $("#sess-sub").textContent = `${shortDay(x.date)} · tjedan ${x.week} · ${woMin(x.w)} min${x.done ? " · odrađeno" : x.skipped ? " · preskočeno" : ""} — ${x.w.desc}`;
+  const acts = $("#sess-acts"); acts.innerHTML = "";
+  const add = (label, cls, fn) => { const b = document.createElement("button"); b.className = "btn " + cls; b.textContent = label; b.onclick = () => { fn(); $("#dlg-sess").close(); }; acts.append(b); };
+  add("Zatvori", "", () => {});
+  if(x.done || x.skipped) add("Poništi", "", () => planUpdate(p => { delete p.done[x.id]; delete p.skipped[x.id]; }));
+  else { add("Preskoči", "", () => planUpdate(p => { p.skipped = { ...p.skipped, [x.id]: true }; })); add("Označi odrađeno", "", () => planUpdate(p => { p.done = { ...p.done, [x.id]: true }; })); }
+  add("Vozi", "primary", () => rideSession(x));
+  $("#dlg-sess").showModal();
+  requestAnimationFrame(() => { const [g, W, H] = sizeCanvas($("#sess-prof")); g.clearRect(0, 0, W, H);
+    drawWorkoutBlocks(g, x.w, W, H, Math.max(1.3, ...x.w.segs.map(s => Math.max(toWatts(x.w, s.lo), toWatts(x.w, s.hi)) / settings.ftp)) * 1.05, 1); });
+}
+$("#dlg-sess").addEventListener("click", e => { if(e.target === $("#dlg-sess")) $("#dlg-sess").close(); });
+
+/* the plan as an iCalendar file with a reminder (VALARM) on every session */
+function planIcs(p = plan()){
+  const esc = t => String(t).replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\n/g, "\\n");
+  const two = n => String(n).padStart(2, "0"), loc = d => `${d.getFullYear()}${two(d.getMonth() + 1)}${two(d.getDate())}T${two(d.getHours())}${two(d.getMinutes())}00`;
+  const utc = d => d.toISOString().replace(/[-:]/g, "").replace(/\.\d+/, "");
+  const fold = line => { const out = []; let cur = ""; for(const ch of line){ if(new TextEncoder().encode(cur + ch).length > 74){ out.push(cur); cur = " " + ch; } else cur += ch; } return [...out, cur].join("\r\n"); };
+  const L = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Pedala//Plan//HR", "CALSCALE:GREGORIAN", "METHOD:PUBLISH", "X-WR-CALNAME:Pedala"];
+  for(const x of planSessions(p)){
+    const [hh, mm] = (x.day === "sun" ? p.times?.sun || "09:00" : p.times?.wk || "18:00").split(":").map(Number);
+    const st = new Date(x.date); st.setHours(hh, mm, 0, 0); const en = new Date(st.getTime() + totalDur(x.w) * 1000);
+    L.push("BEGIN:VEVENT", `UID:${p.id}-${p.start}-${x.id}@pedala`, `DTSTAMP:${utc(new Date())}`, `DTSTART:${loc(st)}`, `DTEND:${loc(en)}`,
+      `SUMMARY:${esc(`Pedala: ${x.w.name} (${woMin(x.w)} min)`)}`, `DESCRIPTION:${esc(`Tjedan ${x.week}. ${x.w.desc}\n${location.origin}/`)}`, `URL:${location.origin}/`,
+      "BEGIN:VALARM", "ACTION:DISPLAY", `DESCRIPTION:${esc("Trening: " + x.w.name)}`, `TRIGGER:-PT${p.remind || 120}M`, "END:VALARM", "END:VEVENT");
+  }
+  L.push("END:VCALENDAR");
+  return L.map(fold).join("\r\n") + "\r\n";
+}
+function downloadIcs(){
+  const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([planIcs()], { type: "text/calendar" }));
+  a.download = "pedala-plan.ics"; document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+/* once a day: what the plan says for today */
+function planToday(){
+  const x = planSessions().find(s => s.today && !s.done && !s.skipped);
+  if(x && store.get("planToldOn", "") !== x.d){ store.set("planToldOn", x.d); notify(`Danas po planu: ${x.w.name} · ${woMin(x.w)} min. Otvori Plan → Vozi sada.`); }
+}
+
+/* ============ sync (api/sync.js, Vercel Blob) ============
+   Settings, the plan, imported workouts and routes go up as time-stamped sections; the newest wins and plan
+   progress from both devices is merged. Rides go up and down one by one; deleted rides travel as tombstones.
+   API keys and device-only settings stay on the device. */
+const SYNC_SKIP = ["ytKey", "icuKey", "clickMap", "voiceName"];
+var syncBusy = false, syncTimer = null, syncOff = false;   // var: store.set may call syncSoon before this line runs
+function syncSoon(){ clearTimeout(syncTimer); syncTimer = setTimeout(() => syncNow(), 3000); }
+const publicSettings = () => Object.fromEntries(Object.entries(settings).filter(([k]) => !SYNC_SKIP.includes(k)));
+function applySection(k, data){
+  store.quiet = true;
+  try{
+    if(k === "settings"){ for(const [x, v] of Object.entries(data || {})) if(!SYNC_SKIP.includes(x)) settings[x] = v; store.set("settings", settings); }
+    else store.set(k, data);
+  }finally{ store.quiet = false; }
+}
+async function syncNow(){
+  if(syncBusy || syncOff || !navigator.onLine) return;
+  syncBusy = true; setSyncStatus("Sinkroniziram…");
+  try{
+    const at = store.get("syncAt", {}), sections = {};
+    for(const k of SYNCED){ const v = store.get(k, null); if(v == null) continue; at[k] ||= 1;   // data from before sync existed counts as oldest
+      sections[k] = { at: at[k], data: k === "settings" ? publicSettings() : v }; }
+    const deleted = store.get("syncDeleted", []);
+    const r = await fetch("/api/sync", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "state", sections, deleted }) });
+    if(r.status === 501 || r.status === 404){ syncOff = true; setSyncStatus(); return; }
+    const j = await r.json().catch(() => ({})); if(!r.ok) throw new Error(j.error || "greška " + r.status);
+    let changed = false;
+    for(const [k, sec] of Object.entries(j.sections || {})){
+      if(!SYNCED.includes(k) || sec.at < (at[k] || 0)) continue;
+      const mine = k === "settings" ? publicSettings() : store.get(k, null);
+      if(JSON.stringify(mine) !== JSON.stringify(sec.data)){ applySection(k, sec.data); changed = true; }
+      at[k] = sec.at;
+    }
+    localStorage.setItem("pedala.syncAt", JSON.stringify(at));
+    const dead = new Set(j.deleted || []); store.set("syncDeleted", deleted.filter(id => !dead.has(id)));
+    const local = await dbAll(), have = new Set(local.map(x => x.id)), server = new Set(j.rides || []);
+    for(const id of dead) if(have.has(id)){ await dbDel(id); changed = true; }
+    let up = 0, down = 0;
+    for(const x of local) if(!server.has(x.id) && !dead.has(x.id)){
+      const { icu, ...ride } = x;   // intervals.icu status belongs to the device that sent it
+      const u = await fetch("/api/sync", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "ride", ride }) });
+      if(!u.ok) throw new Error("vožnja se nije spremila (" + u.status + ")"); up++;
+    }
+    for(const id of server) if(!have.has(id)){
+      const g = await fetch("/api/sync?ride=" + encodeURIComponent(id)); if(g.ok){ await dbPut(await g.json()); down++; changed = true; }
+    }
+    store.set("syncLast", { at: Date.now(), rides: server.size + up, up, down });
+    setSyncStatus();
+    if(changed) refreshView();
+  }catch(e){ setSyncStatus("Sinkronizacija nije uspjela: " + e.message); }
+  finally{ syncBusy = false; }
+}
+function setSyncStatus(msg){
+  const el = $("#sync-status"); if(!el) return;
+  const last = store.get("syncLast", null);
+  el.innerHTML = msg ? msg.replace(/</g, "&lt;")
+    : syncOff ? "Sinkronizacija nije uključena. Na Vercelu otvori projekt → <b>Storage → Create → Blob</b> i poveži ga s projektom (doda <b>BLOB_READ_WRITE_TOKEN</b>), pa <b>Redeploy</b>. Nakon toga mobitel i tablet dijele vožnje, plan i postavke."
+    : last ? `Zadnja sinkronizacija ${new Date(last.at).toLocaleString("hr-HR", { day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" })} · ${last.rides} vožnji u oblaku${last.up || last.down ? ` (poslano ${last.up}, preuzeto ${last.down})` : ""}. Vožnje, plan, treninzi, rute i postavke dijele se između uređaja; API ključevi ostaju na uređaju.`
+    : "Još nije sinkronizirano.";
+}
+function refreshView(){
+  const v = document.querySelector(".view.active")?.id.replace("view-", "");
+  if(v === "settings"){ fillSettings(); renderIcu(); } else if(v) showView(v);
+}
+$("#btn-sync").onclick = () => { syncOff = false; syncNow(); };
+document.addEventListener("visibilitychange", () => { if(document.visibilityState === "visible" && Date.now() - (store.get("syncLast", null)?.at || 0) > 60000) syncNow(); });
+window.addEventListener("online", () => syncSoon());
+
 /* ============ ride report ============
    Like Zwift's workout report: timeline of power and heart rate, laps/intervals, power distribution,
    time in heart-rate zones and the power curve against the best of the last 90 days. */
@@ -1899,7 +2189,7 @@ function openSummary(){
   S.running = false; yt("pauseVideo");
   const m = metrics(S.samples, settings.ftp);
   if(!m || m.duration < 10){ toast("Prekratka vožnja za spremanje"); resetRide(); return; }
-  pendingRide = { id: "r-" + S.startMs, start: S.startMs, name: S.workout ? S.workout.name : S.route ? S.route.name : "Slobodna vožnja", route: !!S.route, ftp: settings.ftp, maxHr: settings.maxHr,
+  pendingRide = { id: "r-" + S.startMs, start: S.startMs, workoutId: S.workout?.id || null, name: S.workout ? S.workout.name : S.route ? S.route.name : "Slobodna vožnja", route: !!S.route, ftp: settings.ftp, maxHr: settings.maxHr,
     samples: S.samples, m, laps: S.lap?.n ? [...S.laps, lapSummary(S.lap)] : [...S.laps] };
   $("#sum-title").textContent = pendingRide.name;
   $("#sum-sub").textContent = new Date(S.startMs).toLocaleString("hr-HR");
@@ -1924,6 +2214,8 @@ $("#sum-save").onclick = async () => {
   const toIcu = icuOn() && settings.icuAuto !== false; if(toIcu) pendingRide.icu = { status: "pending" };
   try{ await dbPut(pendingRide); toast(toIcu ? "Vožnja spremljena, šaljem na intervals.icu" : "Vožnja spremljena"); navigator.storage?.persist?.().catch(() => {}); }catch(e){ toast("Spremanje nije uspjelo: " + e.message); return; }
   const r = pendingRide; $("#dlg-summary").close(); resetRide();
+  const sess = planMarkRide(r); if(sess) toast(`Plan: ${sess.w.name} odrađen`);
+  syncNow();
   if(toIcu) syncIcu(); else if(confirm("Skinuti .FIT datoteku sada?")) downloadFit(r); };
 $("#sum-discard").onclick = () => { if(confirm("Odbaciti vožnju bez spremanja?")){ $("#dlg-summary").close(); resetRide(); } };
 $("#sum-resume").onclick = () => { $("#dlg-summary").close(); start(); };
@@ -1941,7 +2233,7 @@ $("#settings-form").addEventListener("input", e => { const f = e.currentTarget;
 function showView(v){
   document.querySelectorAll(".tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.view === v));
   document.querySelectorAll(".view").forEach(el => el.classList.toggle("active", el.id === "view-" + v));
-  if(v === "workouts") renderWorkouts(); if(v === "history") renderHistory(); if(v === "progress") renderProgress(); if(v === "settings"){ fillSettings(); renderIcu(); } if(v === "ride") render();
+  if(v === "plan") renderPlan(); if(v === "workouts") renderWorkouts(); if(v === "history") renderHistory(); if(v === "progress") renderProgress(); if(v === "settings"){ fillSettings(); renderIcu(); setSyncStatus(); } if(v === "ride") render();
 }
 document.querySelectorAll(".tabs button").forEach(b => b.onclick = () => showView(b.dataset.view));
 
@@ -2132,7 +2424,7 @@ window.addEventListener("beforeunload", e => { if(S.started){ e.preventDefault()
 
 /* init */
 (() => {
-  const lw = store.get("lastWorkout", null); const w = allWorkouts().find(x => x.id === lw); if(w){ S.workout = w; $("#wo-name").textContent = w.name; $("#wo-meta").textContent = w.test ? "" : `· ${fmtTime(totalDur(w))}`; }
+  const lw = store.get("lastWorkout", null); const w = findWorkout(lw); if(w){ S.workout = w; $("#wo-name").textContent = w.name; $("#wo-meta").textContent = w.test ? "" : `· ${fmtTime(totalDur(w))}`; }
   const lr = store.get("lastRoute", null); const rt = allRoutes().find(x => x.id === lr);
   if(rt && !S.workout){ S.route = rt; $("#wo-name").textContent = rt.name; $("#wo-meta").textContent = `· ${(rt.len / 1000).toFixed(1)} km · ↑${rt.gain} m`; }
   const v = store.get("video", null); v ? setVideo(v) : store.get("stageMode", null) === "dash" ? setDash() : showPicker();
@@ -2140,6 +2432,7 @@ window.addEventListener("beforeunload", e => { if(S.started){ e.preventDefault()
   fillSettings(); render();
   autoConnect();
   if("serviceWorker" in navigator && isSecureContext) navigator.serviceWorker.register("/sw.js").catch(e => console.warn("sw", e));
+  syncNow().finally(() => setTimeout(planToday, 1500));
   fetch("/api/intervals").then(r => r.ok ? r.json() : {}).then(j => { icuServer = !!j.serverKey; }).catch(() => {})
     .finally(() => { syncIcu(); renderHistoryIfOpen(); if($("#view-settings").classList.contains("active")) renderIcu(); });
 })();

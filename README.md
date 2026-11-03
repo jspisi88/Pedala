@@ -81,6 +81,44 @@ Ključevi postavljeni na Vercelu ne gube se ni nakon deploya, ni na drugoj adres
 
 YouTube ključ s Vercela Google prima sa servera, a ne iz preglednika. Zato u Google Cloud Consoleu za taj ključ postavi **Application restrictions: None**, a pod **API restrictions** ostavi samo YouTube Data API v3. S ograničenjem na web stranice Google će odbiti pretragu.
 
+## Plan treninga
+
+Kartica **Plan** vodi kroz plan *Održivi 14 tjedana*, prilagođen tako da su treninzi preko tjedna kratki:
+
+- **Utorak:** prag (threshold), najviše 30 min.
+- **Četvrtak:** VO2max, najviše 30 min.
+
+  Oba treninga postaju teža gušćim intervalima, a ne dužim trajanjem.
+- **Nedjelja:** zona 2 raste od 50 min do 3 h.
+- **Tjedni 4, 8 i 12** su lakši, a **14.** završava ramp testom.
+
+Plan se pokreće od odabranog ponedjeljka. Kartica pokazuje:
+- napredak (odrađeno, propušteno, sati, dosljednost);
+- sljedeći trening s gumbom **Vozi sada**;
+- svih 14 tjedana, gdje se trening može označiti kao odrađen ili preskočen.
+
+Spremljena vožnja plan-treninga sama se označi kao odrađena, ako je unutar ±4 dana od planiranog datuma.
+
+**Kalendar:** **Preuzmi kalendar (.ics)** daje svih 42 treninga s vremenom (utorkom i četvrtkom npr. u 18:00, nedjeljom u 9:00) i podsjetnikom. Google Kalendar podsjetnike iz uvezene datoteke zanemaruje, pa:
+1. napravi u njemu poseban kalendar *Pedala*;
+2. u njegovim postavkama dodaj obavijest (npr. 2 h prije);
+3. uvezi datoteku u taj kalendar.
+
+Samsung Kalendar i Outlook čitaju podsjetnik iz same datoteke.
+
+## Sinkronizacija između uređaja
+
+Mobitel i tablet dijele vožnje, plan i napredak, uvezene treninge, rute i postavke preko Vercel Blob spremišta (`api/sync.js`, iza iste prijave).
+
+Uključuje se jednom: na Vercelu otvori projekt, pa **Storage → Create → Blob**, poveži ga s projektom (doda `BLOB_READ_WRITE_TOKEN`) i pokreni **Redeploy**.
+
+Kako radi:
+- **Kada se sinkronizira:** pri otvaranju aplikacije, nakon spremanja ili brisanja vožnje, nakon promjene plana ili postavki, i ručno u **Postavke → Sinkronizacija**.
+- **Sukobi:** za postavke, treninge i rute pobjeđuje novija promjena. Odrađeni treninzi plana spajaju se s oba uređaja.
+- **Brisanje:** obrisana vožnja briše se i na drugim uređajima.
+- **Što ostaje na uređaju:** API ključevi (YouTube, intervals.icu), raspored tipki Clicka, odabrani glas i status slanja na intervals.icu.
+- **Privatnost:** datoteke su privatne kad Blob spremište to podržava, inače javne s nepogodivim imenom. Adrese nikad ne izlaze iz funkcije.
+
 ## Instalacija kao aplikacija
 
 Pedala je PWA: ima manifest, ikone i service worker, pa je Chrome može instalirati kao aplikaciju. Instalirana se otvara preko cijelog ekrana, bez Chromeove trake, i ima svoju ikonu.
@@ -193,6 +231,9 @@ U svim slučajevima IndexedDB ostaje lokalna baza, pa aplikacija radi i bez inte
 | `icuSaveKey`, `syncIcu`, `icuUpload` | Povezivanje s intervals.icu i red slanja |
 | `api/intervals.js` | Vercel funkcija koja prosljeđuje upload na intervals.icu |
 | `api/youtube.js` | Vercel funkcija za pretragu videa s `YOUTUBE_API_KEY` |
+| `api/sync.js` | Vercel funkcija za sinkronizaciju (Vercel Blob) |
+| `PLAN`, `PLAN_WO`, `planSessions`, `renderPlan`, `planIcs` | Plan treninga i kalendar |
+| `syncNow` | Sinkronizacija na strani aplikacije |
 | `middleware.js` | Prijava (Basic Auth) ispred cijele stranice |
 
 Format uzorka u `ride.samples`: `[t, snaga W, kadenca, puls, brzina cm/s, udaljenost m]`, a za rute još `lat, lon, visina`.
