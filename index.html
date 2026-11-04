@@ -111,6 +111,9 @@ a.btn{display:inline-block;color:inherit;text-decoration:none}
 .vchips{display:flex;gap:6px;flex-wrap:wrap;margin:12px 0 8px}
 .vchips button{border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:5px 12px;font-size:14px;color:var(--text)}
 .vchips button:hover{background:var(--panel2)}
+.vchips .ch{display:inline-flex;align-items:center;gap:6px}
+.vchips .ch img{width:20px;height:20px;border-radius:50%}
+.vsect .more{float:right;font:500 13px/1.6 var(--ui);color:var(--muted);background:none;border:0;padding:0 2px;text-decoration:underline}
 .vlong{display:inline-flex;align-items:center;gap:8px;font-size:14px;color:var(--muted)}
 .vmsg{margin:14px 0;padding:12px 14px;border-radius:12px;background:var(--panel);color:var(--muted);font-size:15px;max-width:60ch}
 .vmsg b{color:var(--text)}
@@ -455,6 +458,7 @@ dialog.wide .sum{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}
         <div id="vid-msg" class="vmsg" hidden></div>
         <div class="vsect" id="vid-res-title" hidden>Rezultati</div>
         <div class="vgrid" id="vid-results"></div>
+        <div id="vid-feed"></div>
         <div class="vsect" id="vid-recent-title" hidden>Nedavno gledano</div>
         <div class="vgrid" id="vid-recent"></div>
         <div class="vsect" style="margin-top:30px">Glazba</div>
@@ -653,7 +657,7 @@ const fmtTime = s => { s = Math.max(0, Math.round(s)); const h = Math.floor(s/36
   return h ? `${h}:${String(m).padStart(2,"0")}:${String(x).padStart(2,"0")}` : `${m}:${String(x).padStart(2,"0")}`; };
 function toast(msg){ const t=$("#toast"); t.textContent=msg; t.classList.add("show"); clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove("show"),2600); }
 /* keys shared between devices through api/sync.js; each change is time-stamped so the newest one wins */
-const SYNCED = ["settings", "plan", "workouts", "routes"];
+const SYNCED = ["settings", "plan", "workouts", "routes", "ytChannels", "ytPlaylists"];
 const store = {
   get(k, d){ try{ const v = localStorage.getItem("pedala."+k); return v==null ? d : JSON.parse(v); }catch{ return d; } },
   set(k, v){
@@ -1284,7 +1288,7 @@ function showPicker(){
   if(vf){ yt("pauseVideo"); vf.hidden = true; }
   $("#stage-empty").hidden = false; st.classList.add("picking"); $("#vid-tools").hidden = true;
   $("#btn-vid-back").hidden = !(vf || isDash()); $("#btn-vid-back").textContent = vf ? "Natrag na video" : "Natrag na profil";
-  renderRecent(); renderRecentMusic();
+  renderRecent(); renderRecentMusic(); renderFeed();
 }
 function hidePicker(){
   const st = $("#stage"), f = $("#vid-frame"); if(f){ f.hidden = false; if(S.running) yt("playVideo"); }
@@ -1311,6 +1315,76 @@ function vidCard(v, onPick = () => { rememberVideo(v); setVideo(v.id); }){
 function renderRecent(){
   const r = recentVideos(), box = $("#vid-recent"); box.innerHTML = "";
   $("#vid-recent-title").hidden = !r.length; r.forEach(v => box.append(vidCard(v)));
+}
+/* ============ video feed ============
+   YouTube gives apps no personal recommendations, so the picker builds its own feed: the newest videos of
+   favourite channels, the user's own playlists, and a theme of the day. Results are kept for a few hours
+   (a day for the theme) so the daily search quota lasts. */
+const FEED_THEMES = [["Alpe", "alps road cycling 4k"], ["Dolomiti", "dolomites road cycling"], ["Jadranska obala", "croatia coast cycling"],
+  ["Toskana", "tuscany cycling ride"], ["Norveška", "norway cycling ride"], ["Mallorca", "mallorca cycling climb"], ["Gravel", "gravel ride forest 4k"],
+  ["Pireneji", "pyrenees cycling climb"], ["Švicarska", "switzerland cycling pass"], ["Island", "iceland cycling"]];
+async function ytApi(params){
+  const u = new URL("/api/youtube", location.href); Object.entries(params).forEach(([k, v]) => u.searchParams.set(k, v));
+  const r = await fetch(u), j = await r.json().catch(() => ({}));
+  if(!r.ok) throw new Error(r.status === 501 || r.status === 404 && !j.error ? "noKey" : j.error || String(r.status));
+  return j;
+}
+async function cached(key, maxAge, fn){
+  const c = store.get("ytCache", {});
+  if(c[key] && Date.now() - c[key].at < maxAge) return c[key].data;
+  const data = await fn(), c2 = store.get("ytCache", {}); c2[key] = { at: Date.now(), data };
+  Object.keys(c2).sort((a, b) => c2[b].at - c2[a].at).slice(30).forEach(k => delete c2[k]);
+  store.set("ytCache", c2); return data;
+}
+const ytChannels = () => store.get("ytChannels", []), ytPlaylists = () => store.get("ytPlaylists", []);
+const feedErr = e => String(e.message) === "noKey" ? "Za kanale i prijedloge treba YouTube ključ na Vercelu (YOUTUBE_API_KEY)." : "Nije učitano: " + String(e.message).replace(/[<>]/g, "");
+function feedSection(title, id){ return `<div class="vsect">${title}</div><div class="vgrid" id="${id}"></div>`; }
+function fillGrid(id, items, empty){
+  const g = $("#" + id); if(!g) return; g.innerHTML = "";
+  if(!items.length){ g.innerHTML = `<p class="note">${empty}</p>`; return; }
+  items.forEach(v => g.append(vidCard({ ...v, title: unesc(v.title), channel: unesc(v.channel || "") })));
+}
+async function renderFeed(){
+  const box = $("#vid-feed"); if(!box) return;
+  const chans = ytChannels(), lists = ytPlaylists(), long = $("#vid-long").checked;
+  const day = ymd(new Date()), themeIdx = (store.get("feedTheme", {})[day] ?? Math.floor(Date.now() / 864e5)) % FEED_THEMES.length, [theme, query] = FEED_THEMES[themeIdx];
+  box.innerHTML = `<div class="vsect">Moji kanali</div>
+    <form class="field" id="feed-ch-form"><input id="feed-ch" type="search" placeholder="Dodaj kanal: link ili @ime" aria-label="Dodaj YouTube kanal"><button class="btn" type="submit">Dodaj</button></form>
+    <div class="vchips" id="feed-ch-list"></div><div class="vgrid" id="feed-ch-videos"></div>
+    <div class="vsect">Moje playliste</div>
+    <form class="field" id="feed-pl-form"><input id="feed-pl" type="search" placeholder="Zalijepi link svoje YouTube playliste" aria-label="Dodaj playlistu"><button class="btn" type="submit">Dodaj</button></form>
+    <div id="feed-pls"></div>
+    <div class="vsect">Prijedlozi za danas: ${theme} <button class="more" type="button" id="feed-next">druga tema</button></div><div class="vgrid" id="feed-today"></div>`;
+  // channels: chips to remove, then the newest uploads of all of them mixed
+  for(const c of chans){
+    const b = document.createElement("button"); b.type = "button"; b.className = "ch"; b.title = "Ukloni kanal";
+    b.innerHTML = `${c.thumb ? `<img alt="" src="${c.thumb}">` : ""}<span></span> ✕`; b.querySelector("span").textContent = c.title;
+    b.onclick = () => { if(confirm(`Ukloniti kanal ${c.title}?`)){ store.set("ytChannels", ytChannels().filter(x => x.id !== c.id)); renderFeed(); } };
+    $("#feed-ch-list").append(b);
+  }
+  $("#feed-ch-form").onsubmit = async e => { e.preventDefault(); const t = $("#feed-ch").value.trim(); if(!t) return;
+    try{ const c = await ytApi({ channel: t }); if(ytChannels().some(x => x.id === c.id)) return toast("Kanal je već dodan");
+      store.set("ytChannels", [...ytChannels(), c]); toast(`Dodan kanal ${c.title}`); renderFeed(); }catch(err){ toast(feedErr(err)); } };
+  $("#feed-pl-form").onsubmit = async e => { e.preventDefault(); const t = $("#feed-pl").value.trim(); if(!t) return;
+    try{ const pl = await ytApi({ playlist: t }); if(ytPlaylists().some(x => x.id === pl.id)) return toast("Playlista je već dodana");
+      store.set("ytPlaylists", [...ytPlaylists(), { id: pl.id, title: pl.title || "Playlista" }]); toast(`Dodana playlista ${pl.title}`); renderFeed(); }catch(err){ toast(feedErr(err)); } };
+  $("#feed-next").onclick = () => { store.set("feedTheme", { [day]: themeIdx + 1 }); renderFeed(); };
+  if(chans.length){
+    Promise.all(chans.map(c => cached("ch:" + c.uploads, 3 * 36e5, () => ytApi({ playlist: c.uploads })).then(r => r.items.map(v => ({ ...v, channel: c.title }))).catch(() => [])))
+      .then(all => fillGrid("feed-ch-videos", all.flat().sort((a, b) => String(b.published).localeCompare(String(a.published))).slice(0, 12), "Kanali trenutno nemaju videa."));
+  } else $("#feed-ch-videos").innerHTML = `<p class="note">Dodaj kanale koje voliš gledati, npr. <b>@imekanala</b> ili link kanala, pa će ovdje biti njihovi najnoviji videi.</p>`;
+  for(const pl of lists){
+    const sec = document.createElement("div"), gid = "feed-pl-" + pl.id.replace(/[^\w-]/g, "");
+    sec.innerHTML = `<div class="vsect" style="font-size:17px;margin-top:12px"><span></span> <button class="more" type="button">ukloni</button></div><div class="vgrid" id="${gid}"></div>`;
+    sec.querySelector("span").textContent = pl.title;
+    sec.querySelector("button").onclick = () => { if(confirm(`Ukloniti playlistu ${pl.title}?`)){ store.set("ytPlaylists", ytPlaylists().filter(x => x.id !== pl.id)); renderFeed(); } };
+    $("#feed-pls").append(sec);
+    cached("pl:" + pl.id, 3 * 36e5, () => ytApi({ playlist: pl.id })).then(r => fillGrid(gid, r.items.slice(0, 12), "Playlista je prazna."), err => fillGrid(gid, [], feedErr(err)));
+  }
+  if(!lists.length) $("#feed-pls").innerHTML = `<p class="note">Npr. svoju playlistu „Za trenažer“ na YouTubeu. Mora biti javna ili nepopisana.</p>`;
+  const seen = new Set(recentVideos().map(v => v.id));
+  cached(`theme:${day}:${themeIdx}:${long}`, 864e5, () => ytSearch(query, long))
+    .then(r => fillGrid("feed-today", r.filter(v => !seen.has(v.id)).slice(0, 8), "Danas nema prijedloga."), err => fillGrid("feed-today", [], feedErr(err)));
 }
 function vidMsg(html){ const m = $("#vid-msg"); m.hidden = !html; m.innerHTML = html || ""; }
 /* search through api/youtube.js with YOUTUBE_API_KEY from Vercel; without it, straight to Google with the key from Settings */
@@ -1416,6 +1490,7 @@ $("#mus-next").onclick = () => { musicCmd("nextVideo"); musicOn = true; $("#mus-
 $("#mus-play").onclick = () => { musicOn = !musicOn; musicCmd(musicOn ? "playVideo" : "pauseVideo"); $("#mus-play").textContent = musicOn ? "⏸" : "▶"; };
 $("#mus-min").onclick = () => { const m = $("#music"); m.classList.toggle("min"); $("#mus-min").textContent = m.classList.contains("min") ? "+" : "–"; };
 $("#btn-dash").onclick = () => setDash();
+$("#vid-long").addEventListener("change", () => renderFeed());
 $("#btn-voice-test").onclick = () => { hrVoice = null; say("Za 10 sekundi: 3 minute na 265 vata, kadenca 90 do 100.", true); };
 
 /* ============ sound + wake lock ============ */
@@ -2103,6 +2178,7 @@ function setSyncStatus(msg){
 function refreshView(){
   const v = document.querySelector(".view.active")?.id.replace("view-", "");
   if(v === "settings"){ fillSettings(); renderIcu(); } else if(v) showView(v);
+  if(!$("#stage-empty").hidden) renderFeed();   // new channels or playlists from the other device
 }
 $("#btn-sync").onclick = () => { syncOff = false; syncNow(); };
 document.addEventListener("visibilitychange", () => { if(document.visibilityState === "visible" && Date.now() - (store.get("syncLast", null)?.at || 0) > 60000) syncNow(); });

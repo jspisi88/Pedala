@@ -21,6 +21,12 @@ Aplikacija za vožnju na trenažeru u pregledniku, bez instalacije. Cijela aplik
 
   Svaki interval ima ciljanu kadencu i uputu, npr. „Samo lijeva noga“. Kadenca je zelena kad si u rasponu, a narančasta kad nisi. Glas najavljuje kadencu i javlja prosjek nakon svakog drilla. Uvoz `.zwo` čita i Zwiftove atribute `Cadence` i `CadenceResting`.
 - **YouTube video** uz vožnju: pretraga (uz besplatni API ključ) ili zalijepljen link. Gumb **Cijeli zaslon** prikazuje video preko cijelog ekrana sa snagom, ciljem ili nagibom, intervalom, kadencom, pulsom, vremenom i brzinom preko slike. YouTubeov vlastiti gumb za cijeli zaslon je isključen jer bi sakrio te podatke. Iza metrike je profil kao u Zwiftu: blokovi treninga u bojama zona (ili visinski profil rute), bijela crta snage i crvena crta pulsa. Puls se crta i na profilu ispod videa.
+- **Feed videa:** YouTube vanjskim aplikacijama ne daje osobne preporuke, pa odabir videa ima svoj feed:
+  - **Moji kanali:** najnoviji videi kanala koje dodaš (link kanala ili `@ime`);
+  - **Moje playliste:** tvoje javne ili nepopisane YouTube playliste;
+  - **Prijedlozi za danas:** tema dana s dugim videima vožnje, preskaču se već gledani; gumb *druga tema*.
+
+  Rezultati se čuvaju nekoliko sati (tema cijeli dan) da dnevna kvota potraje, a kanali i playliste sinkroniziraju se između uređaja.
 - **Bez videa:** gumb **Bez videa: profil treninga** pretvara prostor za video u veliki profil treninga s metrikom na dnu, kao u cijelom zaslonu. Aplikacija pamti odabir.
 - **Glazba s YouTube Musica:** zalijepi link pjesme, albuma ili playliste (YouTube Music → Podijeli → Kopiraj vezu) ili potraži glazbu. Svira u malom prozoru u kutu, uz video ili uz profil, i ne pauzira se kad pauziraš vožnju. Gumbi ⏮ ⏯ ⏭ u traci playera rade i kad je player smanjen (⏮ i ⏭ samo za playliste i albume). Poseban API ne treba: YouTube Music nema javni API, ali su njegove pjesme i playliste obični YouTube videi i playliste. Pretraga koristi isti `YOUTUBE_API_KEY` uz filtar na kategoriju Music, a linkovi rade i bez ključa.
 - **Povijest:** metrike svake vožnje (NP, IF, TSS, kJ, najbolje snage) i izvoz u `.FIT` za Stravu, intervals.icu ili GoldenCheetah.
