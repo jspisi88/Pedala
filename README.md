@@ -45,8 +45,8 @@ Web Bluetooth works in **Chrome or Edge on Android, Windows, macOS, Linux and Ch
 
 | Variable | What for |
 |---|---|
-| `PEDALA_PASSWORD` | Password for the login page (required: without it nobody gets in) |
-| `PEDALA_USER` | Login name (default `pedala`) |
+| `PEDALA_PASSWORD` | Password for the login page (required: without it nobody gets in). Use a long one: the default login name is public. |
+| `PEDALA_USER` | Login name (default `admin`) |
 | `YOUTUBE_API_KEY` | YouTube Data API v3 key for searching videos, channels and playlists. In Google Cloud set *Application restrictions: None* and *API restrictions: YouTube Data API v3* (the key is used by the server, not the browser). |
 | `INTERVALS_API_KEY` | intervals.icu API key (*Settings → Developer Settings* on intervals.icu) |
 | `BLOB_READ_WRITE_TOKEN` | Added by Vercel when you create a Blob store: **Storage → Create → Blob**, *Private*, tick *Add a read-write token*. Enables sync between devices. |

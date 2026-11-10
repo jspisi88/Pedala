@@ -47,8 +47,8 @@ Web Bluetooth radi u **Chromeu ili Edgeu na Androidu, Windowsima, macOS-u, Linux
 
 | Varijabla | Za što |
 |---|---|
-| `PEDALA_PASSWORD` | Lozinka za prijavu (obavezno: bez nje nitko ne ulazi) |
-| `PEDALA_USER` | Korisničko ime (zadano `pedala`) |
+| `PEDALA_PASSWORD` | Lozinka za prijavu (obavezno: bez nje nitko ne ulazi). Neka bude duga, jer je zadano ime javno. |
+| `PEDALA_USER` | Korisničko ime (zadano `admin`) |
 | `YOUTUBE_API_KEY` | YouTube Data API v3 ključ za pretragu videa, kanala i playlista. U Google Cloudu postavi *Application restrictions: None* i *API restrictions: YouTube Data API v3*, jer ključ koristi server, a ne preglednik. |
 | `INTERVALS_API_KEY` | intervals.icu API ključ (na intervals.icu: *Settings → Developer Settings*) |
 | `BLOB_READ_WRITE_TOKEN` | Doda ga Vercel kad napraviš Blob spremište: **Storage → Create → Blob**, *Private*, kvačica *Add a read-write token*. Uključuje sinkronizaciju uređaja. |
