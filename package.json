@@ -1,9 +1,21 @@
 {
   "name": "pedala",
   "private": true,
-  "description": "Trenažer, treninzi i video u pregledniku",
-  "engines": { "node": ">=20" },
+  "description": "Indoor cycling in the browser: smart trainer (FTMS), heart rate, Zwift Click, ERG workouts, YouTube rides, training plan.",
+  "engines": {
+    "node": ">=20"
+  },
   "dependencies": {
     "@vercel/blob": "^2.8.2"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jspisi88/Pedala"
+  },
+  "scripts": {
+    "test": "node --no-warnings tests/unit.js && node tests/e2e.js",
+    "test:unit": "node --no-warnings tests/unit.js",
+    "dev": "node tests/support/server.js"
   }
 }

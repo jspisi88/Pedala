@@ -437,7 +437,7 @@ dialog.wide .sum{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}
       <div class="o-paused" id="o-paused" hidden>Pauza</div>
       <div class="o-msg" id="o-msg" hidden></div>
       <div class="music" id="music" hidden>
-        <div class="music-bar"><span>♪</span><b id="music-title">Glazba</b><button type="button" id="mus-prev" aria-label="Prethodna pjesma">⏮</button><button type="button" id="mus-play" aria-label="Pauza ili nastavak glazbe">⏸</button><button type="button" id="mus-next" aria-label="Sljedeća pjesma">⏭</button><button type="button" id="mus-min" aria-label="Smanji">–</button><button type="button" id="mus-stop" aria-label="Zaustavi glazbu">✕</button></div>
+        <div class="music-bar"><span>♪</span><b id="music-title" data-notr>Glazba</b><button type="button" id="mus-prev" aria-label="Prethodna pjesma">⏮</button><button type="button" id="mus-play" aria-label="Pauza ili nastavak glazbe">⏸</button><button type="button" id="mus-next" aria-label="Sljedeća pjesma">⏭</button><button type="button" id="mus-min" aria-label="Smanji">–</button><button type="button" id="mus-stop" aria-label="Zaustavi glazbu">✕</button></div>
         <div id="music-frame"></div>
       </div>
       <div class="vid-tools" id="vid-tools" hidden>
@@ -557,6 +557,7 @@ dialog.wide .sum{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}
       <h1>Postavke</h1>
       <p class="lead">Spremljeno samo na ovom uređaju.</p>
       <form class="form" id="settings-form">
+        <label class="full" data-notr>Jezik · Language<select name="uiLang"><option value="hr">Hrvatski</option><option value="en">English</option></select></label>
         <label>FTP (W)<input name="ftp" type="number" min="80" max="600" step="1"></label>
         <label>Težina (kg)<input name="weight" type="number" min="30" max="200" step="0.5"></label>
         <label>Prednji lančanik (zubi)<input name="chainring" type="number" min="20" max="60" step="1"></label>
@@ -567,7 +568,8 @@ dialog.wide .sum{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}
         <p class="full note" style="margin:-4px 0 4px">Besplatan je: na console.cloud.google.com napravi projekt, uključi <b>YouTube Data API v3</b> i pod Credentials stvori API key. Dnevna kvota je dovoljna za oko 100 pretraga. Bez ključa i dalje možeš zalijepiti link.</p>
         <label class="full check"><input name="beep" type="checkbox"> Zvučni signal na promjeni intervala</label>
         <label class="full check"><input name="voice" type="checkbox"> Glasovne najave (sljedeći interval, rezultat intervala i dionice)</label>
-        <label class="full">Glas za najave<select name="voiceName"><option value="">Automatski (hrvatski)</option></select></label>
+        <label>Jezik najava<select name="voiceLang"><option value="auto">Automatski</option><option value="hr">Hrvatski</option><option value="en">English</option></select></label>
+        <label>Glas za najave<select name="voiceName" data-notr><option value="">Automatski</option></select></label>
         <div class="full dlg-acts" style="justify-content:flex-start;margin-top:-4px"><button class="btn small" type="button" id="btn-voice-test">Isprobaj glas</button></div>
         <p class="full note" id="voice-note" hidden></p>
         <label class="full check"><input name="pauseVideo" type="checkbox"> Pauziraj video kad pauziram trening</label>
@@ -593,7 +595,7 @@ dialog.wide .sum{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}
       <h2 class="section-title">Zwift Click</h2>
       <p class="note">Spoji ga gumbom Click gore desno, nakon što ga odspojiš iz Zwifta. Click v2 ima dva dijela: spoji svaki posebno. Ako tipke rade krivo, postavi ih ispočetka.</p>
       <div class="dlg-acts" style="justify-content:flex-start;margin:10px 0"><button class="btn small" id="btn-click-cal" type="button">Postavi tipke ispočetka</button></div>
-      <details class="note"><summary>Zadnji paketi s Clicka</summary><pre id="click-log" style="white-space:pre-wrap;font-size:12px;margin:8px 0 0">Još ništa.</pre></details>
+      <details class="note"><summary>Zadnji paketi s Clicka</summary><pre data-notr id="click-log" style="white-space:pre-wrap;font-size:12px;margin:8px 0 0">Još ništa.</pre></details>
       <h2 class="section-title">Tipkovnica</h2>
       <p class="note">Razmak: kreni / pauza. Strelice gore i dolje: intenzitet u ERG treningu ili brzina u slobodnoj vožnji.</p>
     </div></div>
@@ -668,7 +670,309 @@ const store = {
     }catch{ return false; }
   }
 };
+let HAD_SETTINGS = false; try{ HAD_SETTINGS = localStorage.getItem("pedala.settings") != null; }catch{}
 const settings = Object.assign({ ftp: 230, weight: 80, chainring: 34, cog: 14, clickMap: {}, beep: true, pauseVideo: true, autoPause: true, maxHr: 185, voice: true }, store.get("settings", {}));
+/* ============ language ============
+   The interface is written in Croatian; with English picked (Settings → Language, or a browser that is not set to
+   Croatian on a fresh install) every Croatian text on the page is swapped for its English one as it appears:
+   exact texts from EN, texts with numbers from EN_RX, and "a · b" pieces one by one. Code that builds longer
+   sentences uses ui(hr, en). Elements marked data-notr (video titles, channel names…) are left alone.
+   Spoken announcements have their own language setting (voiceLang), which follows this one by default. */
+const UI = settings.uiLang || (HAD_SETTINGS ? "hr" : /^(hr|bs|sr|sh)\b/i.test(navigator.language || "") ? "hr" : "en");
+const LOC = UI === "hr" ? "hr-HR" : "en-GB";
+const ui = (hr, en) => UI === "hr" ? hr : en;
+document.documentElement.lang = UI;
+const EN = new Map(Object.entries({
+  // header and ride screen
+  "Vožnja": "Ride", "Treninzi": "Workouts", "Povijest": "History", "Napredak": "Progress", "Postavke": "Settings",
+  "Spoji trenažer": "Connect trainer", "Puls": "HR", "Podaci vožnje": "Ride data", "Slobodna vožnja": "Free ride",
+  "Kadenca": "Cadence", "Vrijeme": "Time", "Udaljenost": "Distance", "Brzina": "Speed", "Prosjek": "Average",
+  "Smanji intenzitet": "Lower intensity", "Povećaj intenzitet": "Raise intensity", "Intenzitet": "Intensity", "Ciljani puls": "Target HR",
+  "Lakša brzina": "Easier gear", "Teža brzina": "Harder gear", "Brzina · 0% nagib": "Gear · 0% grade",
+  "Kreni": "Start", "Završi": "Finish", "Pauza": "Pause", "Nastavi": "Resume", "Izađi": "Exit",
+  "Nagib": "Grade", "Slobodno": "Free", "Cilj": "Target", "Lagani start": "Soft start", "lagani start": "soft start",
+  "Zadnji interval": "Last interval", "Do cilja": "To the finish", "Vozi dok možeš, onda Završi": "Ride as long as you can, then Finish",
+  "Glazba": "Music", "Playlista": "Playlist", "Prethodna pjesma": "Previous track", "Pauza ili nastavak glazbe": "Pause or resume music",
+  "Sljedeća pjesma": "Next track", "Smanji": "Minimise", "Zaustavi glazbu": "Stop music",
+  "Promijeni video": "Change video", "Odaberi video": "Choose a video", "Cijeli zaslon": "Full screen", "Profil treninga": "Workout profile",
+  "Ovdje se crta snaga zadnjih 20 minuta": "Your power over the last 20 minutes is drawn here",
+  // video and music picker
+  "Što gledaš dok voziš?": "What are you watching while you ride?", "Bez videa: profil treninga": "No video: workout profile",
+  "Natrag na video": "Back to video", "Natrag na profil": "Back to profile",
+  "Traži vožnju, npr. Stelvio ili Plitvice, ili zalijepi link": "Search for a ride, e.g. Stelvio or Plitvice, or paste a link",
+  "Traži YouTube video": "Search YouTube videos", "Traži": "Search", "Samo dugi videi (20+ min)": "Long videos only (20+ min)",
+  "Rezultati": "Results", "Nedavno gledano": "Recently watched", "Nedavna glazba": "Recent music", "Tražim…": "Searching…",
+  "Pjesma, album ili playlista s YouTube Musica ili YouTubea svira u malom prozoru u kutu, uz video ili uz profil treninga. Zalijepi link iz aplikacije YouTube Music (Podijeli → Kopiraj vezu) ili potraži.":
+    "A song, album or playlist from YouTube Music or YouTube plays in a small window in the corner, next to the video or the workout profile. Paste a link from the YouTube Music app (Share → Copy link) or search.",
+  "Traži glazbu ili zalijepi link s YouTube Musica": "Search for music or paste a YouTube Music link", "Traži glazbu": "Search music",
+  "Dolomiti": "Dolomites", "Jadranska obala": "Adriatic coast", "Toskana": "Tuscany", "Norveška": "Norway", "Švicarske Alpe": "Swiss Alps",
+  "Gravel šuma": "Gravel forest", "Alpe": "Alps", "Pireneji": "Pyrenees", "Švicarska": "Switzerland", "Island": "Iceland",
+  "Techno za trening": "Workout techno", "Rock za trening": "Workout rock", "Hrvatski hitovi": "Croatian hits", "Epska motivacija": "Epic motivation",
+  "Moji kanali": "My channels", "Moje playliste": "My playlists", "Dodaj": "Add", "druga tema": "another theme", "ukloni": "remove",
+  "Dodaj kanal: link ili @ime": "Add a channel: link or @name", "Dodaj YouTube kanal": "Add a YouTube channel",
+  "Zalijepi link svoje YouTube playliste": "Paste a link to your YouTube playlist", "Dodaj playlistu": "Add playlist", "Ukloni kanal": "Remove channel",
+  "Dodaj kanale koje voliš gledati, npr.": "Add channels you like to watch, e.g.", "@imekanala": "@channelname",
+  "ili link kanala, pa će ovdje biti njihovi najnoviji videi.": "or a channel link, and their newest videos will show up here.",
+  "Npr. svoju playlistu „Za trenažer“ na YouTubeu. Mora biti javna ili nepopisana.": "E.g. your own “Trainer” playlist on YouTube. It has to be public or unlisted.",
+  "Kanali trenutno nemaju videa.": "The channels have no videos right now.", "Playlista je prazna.": "The playlist is empty.", "Danas nema prijedloga.": "No picks today.",
+  "Kanal je već dodan": "This channel is already added", "Playlista je već dodana": "This playlist is already added",
+  "Za kanale i prijedloge treba YouTube ključ na Vercelu (YOUTUBE_API_KEY).": "Channels and picks need a YouTube key on Vercel (YOUTUBE_API_KEY).",
+  "Ništa nije pronađeno. Probaj drugi pojam ili isključi filter dugih videa.": "Nothing found. Try another search or turn off the long-videos filter.",
+  "Ništa nije pronađeno. Probaj drugi pojam.": "Nothing found. Try another search.",
+  "Za pretragu treba besplatni YouTube API ključ. Dodaj ga na Vercelu kao": "Searching needs a free YouTube API key. Add it on Vercel as",
+  "ili ga upiši u": "or enter it in", ". Do tada možeš zalijepiti link videa.": ". Until then you can paste a video link.",
+  "Dnevna kvota pretraga je potrošena. Resetira se oko 9 ujutro po našem vremenu, a do tada možeš zalijepiti link.": "Today's search quota is used up. It resets at midnight Pacific time; until then you can paste a link.",
+  "Google odbija ključ zbog ograničenja na web stranice. U Google Cloud Consoleu za ovaj ključ postavi": "Google refuses the key because it is restricted to websites. In Google Cloud Console set this key to",
+  ", a API restrictions ostavi na YouTube Data API v3.": " and keep API restrictions on YouTube Data API v3.",
+  "YouTube ne prihvaća API ključ. Provjeri ga i je li uključen YouTube Data API v3.": "YouTube does not accept the API key. Check it and that YouTube Data API v3 is enabled.",
+  "Nema veze s YouTubeom. Provjeri internet.": "Can't reach YouTube. Check your internet connection.",
+  "Za pretragu treba YouTube API ključ (YOUTUBE_API_KEY na Vercelu). Link s YouTube Musica radi i bez njega.": "Searching needs a YouTube API key (YOUTUBE_API_KEY on Vercel). A YouTube Music link works without one.",
+  "To ne izgleda kao link s YouTube Musica ili YouTubea": "That doesn't look like a YouTube Music or YouTube link", "To ne izgleda kao YouTube link": "That doesn't look like a YouTube link",
+  // workouts and routes
+  "Odaberi trening ili uvezi .zwo datoteke iz Zwifta. Intervali se računaju iz tvog FTP-a.": "Pick a workout or import .zwo files from Zwift. Intervals are worked out from your FTP.",
+  "Uvezi .zwo": "Import .zwo", "Rute": "Routes", "Uvezi .gpx": "Import .gpx",
+  "Uvezi GPX (npr. Stelvio sa Stravine rute). Trenažer prati nagib terena, a brzine mijenjaš Clickom ili tipkama − i +.": "Import a GPX file (e.g. Stelvio from a Strava route). The trainer follows the gradient; shift gears with the Click or the − and + buttons.",
+  "Osnovni treninzi": "Base workouts", "Po pulsu": "By heart rate", "Testovi": "Tests", "Uvezeni": "Imported",
+  "Odaberi": "Select", "Ukloni": "Remove", "Vozi": "Ride", "Do otkaza, obično 20–30 min": "To exhaustion, usually 20–30 min",
+  "Izdržljivost 60": "Endurance 60", "Mirna Z2 vožnja s par kratkih tempo dionica.": "Steady Z2 ride with a few short tempo efforts.",
+  "Klasika za podizanje FTP-a: tri bloka na 88–92%.": "The classic for raising FTP: three blocks at 88–92%.",
+  "Pet teških trominutnih intervala na 115%.": "Five hard three-minute intervals at 115%.",
+  "Prag 2×20": "Threshold 2×20", "Dva duga bloka na 95–100%. Teško, ali isplati se.": "Two long blocks at 95–100%. Hard, but worth it.",
+  "Z2 po pulsu 60": "Z2 by heart rate 60", "Z2 po pulsu 90": "Z2 by heart rate 90",
+  "Snaga se sama namješta da puls ostane na 70% maksimalnog. Treba pulsmetar.": "Power adjusts itself to keep your heart rate at 70% of max. Needs a heart rate strap.",
+  "Duga vožnja na 70% maksimalnog pulsa, snaga se namješta sama. Treba pulsmetar.": "Long ride at 70% of max heart rate; power adjusts itself. Needs a heart rate strap.",
+  "Osam naleta visoke kadence u laganom otporu. Sjedi mirno, bez poskakivanja na sjedalu.": "Eight high-cadence bursts at light resistance. Sit still, no bouncing in the saddle.",
+  "Visoka i niska kadenca": "High and low cadence",
+  "Minuta tempa na 60–70 rpm pa minuta na 90–105 rpm, dvije serije po pet. Misli na okrugao pokret: guraj, povuci natrag, podigni.": "A minute of tempo at 60–70 rpm, then a minute at 90–105 rpm, two sets of five. Think of a round stroke: push, pull back, lift.",
+  "Snaga na niskoj kadenci": "Low-cadence torque",
+  "Tri bloka po 6 minuta na 85% FTP-a s 55–65 rpm, za snagu u nogama. Gornji dio tijela miran.": "Three 6-minute blocks at 85% of FTP at 55–65 rpm, for leg strength. Keep your upper body still.",
+  "Kadencna piramida": "Cadence pyramid",
+  "Lagana snaga, a kadenca raste od 80 do 120+ rpm pa natrag. Traži najvišu kadencu bez poskakivanja.": "Easy power while cadence climbs from 80 to 120+ rpm and back. Find your highest cadence without bouncing.",
+  "Jedna noga": "Single leg",
+  "Izvuci jednu nogu iz pedale (odmori je na trenažeru ili stolčiću) i vrti bez mrtve točke, pa druga noga. Snaga je niska namjerno.": "Unclip one foot (rest it on the trainer or a stool) and pedal without a dead spot, then the other leg. The power is low on purpose.",
+  "Svaku minutu +20 W dok ne možeš više. FTP = 75% najbolje minute. Kad odustaneš, pritisni Završi.": "+20 W every minute until you can't go on. FTP = 75% of your best minute. When you stop, press Finish.",
+  "Visoka kadenca, mirno sjedi": "High cadence, stay seated", "Visoka kadenca": "High cadence", "Niska kadenca": "Low cadence",
+  "Niska kadenca, teški gaz": "Low cadence, big gear", "Samo lijeva noga": "Left leg only", "Samo desna noga": "Right leg only", "Obje noge": "Both legs",
+  "Neispravan XML": "Invalid XML", "Nema <workout> elementa": "No <workout> element", "Trening nema intervala": "The workout has no intervals",
+  "Neispravan GPX": "Invalid GPX", "GPX nema točaka rute": "The GPX has no route points", "GPX nema visinu (ele), pa nema profila terena": "The GPX has no elevation (ele), so there is no profile",
+  "Ruta je kraća od 200 m": "The route is shorter than 200 m",
+  "Biokovo – Sveti Jure (ulaz u park)": "Biokovo – Sveti Jure (park entrance)",
+  "Zagrebački klasik: oko 9,9 km i 530 m, ujednačeno oko 5%.": "Zagreb's classic: about 9.9 km and 530 m, steady at around 5%.",
+  "Od Poklona do vidikovca Vojak: 7 km, oko 475 m, cesta se jednoliko penje.": "From Poklon to the Vojak lookout: 7 km, about 475 m, an even climb.",
+  "23 km i gotovo 1400 m. Kod Skywalka se kratko izravna, pa strmi završetak do vrha.": "23 km and almost 1400 m. It flattens briefly at the Skywalk, then a steep finish to the top.",
+  "21 serpentina, 1120 m. Prva dva kilometra su najstrmija (preko 10%), kraj je blaži.": "21 hairpins, 1120 m. The first two kilometres are the steepest (over 10%); the end is gentler.",
+  "Div Provanse: blagi početak, zatim 10 km šume oko 9–10%, predah kod Chalet Reynarda i goli vrh.": "The Giant of Provence: a gentle start, then 10 km of forest at 9–10%, a breather at Chalet Reynard and the bare summit.",
+  "48 serpentina do 2758 m: 24,3 km i oko 1800 m. Nakon 7 km postaje strmiji.": "48 hairpins to 2758 m: 24.3 km and about 1800 m. It gets steeper after 7 km.",
+  "Trenutna vožnja će se nastaviti s novim treningom. Nastaviti?": "The current ride will carry on with the new workout. Continue?",
+  "Trenutna vožnja će se nastaviti na novoj ruti od početka. Nastaviti?": "The current ride will carry on along the new route from its start. Continue?",
+  "Ukloniti rutu?": "Remove this route?", "Nema mjesta za još ruta. Ukloni neku staru pa probaj ponovno.": "No room for more routes. Remove an old one and try again.",
+  // training plan
+  "Održivi 14 tjedana": "Sustainable 14 weeks", "Aktivni oporavak": "Active recovery",
+  "3 bloka po 4 min: 30 s na 105% pa 30 s na 95% FTP-a, 2 min odmora između.": "3 blocks of 4 min: 30 s at 105%, then 30 s at 95% of FTP, 2 min rest between.",
+  "2 × 7 min na 95% FTP-a.": "2 × 7 min at 95% of FTP.", "3 × 5 min na 100% FTP-a, 2 min odmora.": "3 × 5 min at 100% of FTP, 2 min rest.",
+  "3 × 4 min: minuta na 105% pa minuta na 95% FTP-a.": "3 × 4 min: a minute at 105%, then a minute at 95% of FTP.",
+  "2 × 8 min na 97% FTP-a, 2 min odmora.": "2 × 8 min at 97% of FTP, 2 min rest.", "2 × 9 min na 100% FTP-a.": "2 × 9 min at 100% of FTP.",
+  "2 × 8 min: minuta na 108% pa minuta na 95% FTP-a.": "2 × 8 min: a minute at 108%, then a minute at 95% of FTP.",
+  "FTP Piramida": "FTP Pyramid", "4, 6 i 4 min na 100% FTP-a, 2 min odmora.": "4, 6 and 4 min at 100% of FTP, 2 min rest.",
+  "20 min u komadu na 98% FTP-a.": "20 min in one go at 98% of FTP.", "2 × 6 min na 95% FTP-a. Lakše, pred završni test.": "2 × 6 min at 95% of FTP. Easier, before the final test.",
+  "2 × 6 × (30 s na 120%, 30 s na 50%).": "2 × 6 × (30 s at 120%, 30 s at 50%).", "8 × (1 min na 115%, 1 min lagano).": "8 × (1 min at 115%, 1 min easy).",
+  "5 × (2 min na 112%, 2 min lagano).": "5 × (2 min at 112%, 2 min easy).", "4 × (3 min na 110%, 2 min lagano).": "4 × (3 min at 110%, 2 min easy).",
+  "VO2 Max Piramida": "VO2 Max Pyramid", "1-2-3-2-1 min na 112%, odmor jednak naporu.": "1-2-3-2-1 min at 112%, rest as long as the effort.",
+  "2 × 8 × (40 s na 120%, 20 s lagano).": "2 × 8 × (40 s at 120%, 20 s easy).", "3 × (4 min na 108%, 2,5 min lagano).": "3 × (4 min at 108%, 2.5 min easy).",
+  "2 × 10 × (30 s na 125%, 15 s lagano).": "2 × 10 × (30 s at 125%, 15 s easy).", "5 × (2 min na 118%, 1,5 min lagano).": "5 × (2 min at 118%, 1.5 min easy).",
+  "6 × (1 min na 110%, 1 min lagano). Lakše, pred završni test.": "6 × (1 min at 110%, 1 min easy). Easier, before the final test.",
+  "20 minuta laganog okretanja na 52% FTP-a.": "20 minutes of easy spinning at 52% of FTP.", "Lagano, s dva kratka buđenja od 1 minute na FTP-u.": "Easy, with two short 1-minute wake-ups at FTP.",
+  "Mirna vožnja u zoni 2 (65% FTP-a). Razgovorni tempo, kadenca 85–95.": "Steady Zone 2 ride (65% of FTP). Conversational pace, cadence 85–95.",
+  "Zona 2": "Zone 2", "Uto": "Tue", "Čet": "Thu", "Ned": "Sun", "Danas": "Today", "prag": "threshold", "duga vožnja": "long ride",
+  "lakši": "easier", "odrađeno": "done", "preskočeno": "skipped", "propušteno": "missed", "h vožnje": "h ridden", "dosljednost": "consistency",
+  "Početak (ponedjeljak)": "Start (Monday)", "Pokreni plan": "Start plan", "Vozi sada": "Ride now", "Više": "More",
+  "Plan je završen 🎉": "Plan complete 🎉", "Odradi ramp test ako već nisi i postavi novi FTP.": "Do the ramp test if you haven't yet, and set your new FTP.",
+  "Kalendar i podsjetnik": "Calendar and reminder", "Uto i Čet u": "Tue and Thu at", "Nedjeljom u": "Sundays at", "Podsjetnik": "Reminder", "prije": "before",
+  "Preuzmi plan kao kalendar (.ics) i uvezi ga u Google Kalendar. Svaki trening dobiva podsjetnik prije početka.": "Download the plan as a calendar (.ics) and import it into Google Calendar. Every session gets a reminder before it starts.",
+  "Preuzmi kalendar (.ics)": "Download calendar (.ics)",
+  "Google Kalendar kod uvoza zanemaruje podsjetnike iz datoteke, pa ga postavi ovako: na računalu u Google Kalendaru napravi novi kalendar": "Google Calendar ignores the reminders in an imported file, so set it up like this: on a computer, create a new calendar in Google Calendar called",
+  ", u njegovim postavkama pod": ", in its settings under", "Obavijesti o događajima": "Event notifications",
+  "dodaj obavijest (npr. 2 sata prije), pa": "add a notification (e.g. 2 hours before), then in", "Postavke → Uvoz i izvoz": "Settings → Import & export",
+  "uvezi datoteku u kalendar Pedala. Samsung Kalendar i Outlook čitaju podsjetnik iz same datoteke.": "import the file into the Pedala calendar. Samsung Calendar and Outlook read the reminder from the file itself.",
+  "Promijeni početak": "Change start", "Završi plan": "End plan", "Poništi": "Undo", "Preskoči": "Skip", "Označi odrađeno": "Mark done", "Zatvori": "Close",
+  "Novi početak plana (GGGG-MM-DD, ponedjeljak):": "New plan start (YYYY-MM-DD, a Monday):", "Završiti plan? Vožnje ostaju u Povijesti.": "End the plan? Your rides stay in History.",
+  "Trening": "Workout",
+  // history, report, progress
+  "Vožnje se spremaju samo u ovaj preglednik. Svaku možeš skinuti kao .FIT za Stravu, intervals.icu ili GoldenCheetah, a sve odjednom kao sigurnosnu kopiju.":
+    "Rides are saved in this browser only. Download any of them as .FIT for Strava, intervals.icu or GoldenCheetah, or all of them at once as a backup.",
+  "Izvezi sigurnosnu kopiju": "Export backup", "Uvezi kopiju": "Import backup", "Zadnjih 7 dana": "Last 7 days", "Zadnjih 30 dana": "Last 30 days",
+  "vožnji": "rides", "W prosj.": "W avg", "Izvještaj": "Report", "Obriši": "Delete", "Šaljem…": "Sending…", "Ponovi slanje": "Retry upload", "Na intervals.icu": "To intervals.icu",
+  "Još nema vožnji": "No rides yet", "Odvozi prvi trening i spremi ga na kraju. Pojavit će se ovdje.": "Ride your first workout and save it at the end. It will show up here.",
+  "Obrisati ovu vožnju? Obrisat će se i na drugim uređajima.": "Delete this ride? It will be deleted on your other devices too.",
+  "Najbolja min": "Best minute", "Tijek vožnje": "Ride timeline", "Snaga (boja = zona)": "Power (colour = zone)", "Intervali": "Intervals", "Dionice": "Laps",
+  "Snaga": "Power", "Izvedba": "Score", "Pogođeno": "Hit", "intervala (unutar ±5% cilja).": "intervals (within ±5% of target).",
+  "Raspodjela snage": "Power distribution", "Vrijeme u zonama pulsa": "Time in heart-rate zones", "Krivulja snage": "Power curve",
+  "Ova vožnja": "This ride", "Najbolje u zadnjih 90 dana": "Best of the last 90 days",
+  "Računa se iz vožnji spremljenih u ovom pregledniku.": "Worked out from the rides saved in this browser.",
+  "Spremi nekoliko vožnji i ovdje ćeš vidjeti formu, volumen i najbolje snage.": "Save a few rides and you'll see your form, volume and best powers here.",
+  "Forma": "Form", "Kondicija": "Fitness", "Umor": "Fatigue", "Dnevni TSS": "Daily TSS", "Graf forme": "Form chart", "Rad": "Work", "Još nema": "None yet",
+  "Kondicija (CTL) je prosjek dnevnog TSS-a kroz 42 dana, umor (ATL) kroz 7 dana, a forma (TSB) je kondicija minus umor. Kad je forma jako negativna, treba odmor.":
+    "Fitness (CTL) is your average daily TSS over 42 days, fatigue (ATL) over 7 days, and form (TSB) is fitness minus fatigue. When form is very negative, you need rest.",
+  "Tjedni volumen": "Weekly volume", "Sati vožnje po tjednu za zadnjih 12 tjedana, s TSS-om iznad stupca.": "Hours ridden per week over the last 12 weeks, with TSS above each bar.",
+  "Najbolje snage": "Best powers", "Najveća prosječna snaga kroz zadano trajanje, ikad i u zadnjih 6 tjedana.": "Highest average power for each duration, all time and in the last 6 weeks.",
+  "FTP u postavkama": "FTP in Settings", "Najboljih 20 min × 0.95": "Best 20 min × 0.95", "Kretanje FTP-a": "FTP over time",
+  "Točka vrijedi kao procjena samo ako je tih 20 minuta bio maksimalan napor.": "A dot is only a fair estimate if those 20 minutes were an all-out effort.",
+  "Datoteka nije ispravna kopija": "The file is not a valid backup", "Ovo nije Pedala kopija": "This is not a Pedala backup",
+  "Rute nisu stale u preglednik": "The routes did not fit in the browser", "Preuzeti i postavke iz kopije (FTP, težina, brzine)?": "Also take the settings from the backup (FTP, weight, gears)?",
+  // end of ride
+  "Vožnja gotova": "Ride complete", "Odbaci": "Discard", "Nastavi voziti": "Keep riding", "Spremi vožnju": "Save ride",
+  "Prekratka vožnja za spremanje": "Too short to save", "Vožnja spremljena": "Ride saved", "Vožnja spremljena, šaljem na intervals.icu": "Ride saved, sending to intervals.icu",
+  "Skinuti .FIT datoteku sada?": "Download the .FIT file now?", "Odbaciti vožnju bez spremanja?": "Discard the ride without saving?",
+  "Procjena FTP-a iz ramp testa:": "FTP estimate from the ramp test:",
+  // settings
+  "Spremljeno samo na ovom uređaju.": "Saved on this device.", "Težina (kg)": "Weight (kg)", "Prednji lančanik (zubi)": "Chainring (teeth)",
+  "Zwift Cog (zubi)": "Zwift Cog (teeth)", "Maksimalni puls (bpm)": "Max heart rate (bpm)",
+  "Zone pulsa: Z1 do 60%, Z2 60–70%, Z3 70–80%, Z4 80–90%, Z5 iznad 90% maksimalnog.": "Heart-rate zones: Z1 up to 60%, Z2 60–70%, Z3 70–80%, Z4 80–90%, Z5 above 90% of max.",
+  "YouTube API ključ (samo ako nije postavljen na Vercelu)": "YouTube API key (only if it is not set on Vercel)",
+  "Besplatan je: na console.cloud.google.com napravi projekt, uključi": "It's free: at console.cloud.google.com create a project, enable",
+  "i pod Credentials stvori API key. Dnevna kvota je dovoljna za oko 100 pretraga. Bez ključa i dalje možeš zalijepiti link.": "and create an API key under Credentials. The daily quota covers about 100 searches. Without a key you can still paste a link.",
+  "Zvučni signal na promjeni intervala": "Beep when the interval changes",
+  "Glasovne najave (sljedeći interval, rezultat intervala i dionice)": "Voice announcements (next interval, interval and lap results)",
+  "Jezik najava": "Announcement language", "Automatski": "Automatic", "Glas za najave": "Announcement voice", "Isprobaj glas": "Test the voice",
+  "Pauziraj video kad pauziram trening": "Pause the video when I pause the workout", "Automatska pauza kad prestanem pedalirati": "Pause automatically when I stop pedalling",
+  "Na ovom uređaju nema glasa za najave.": "There is no voice for announcements on this device.",
+  "Nema hrvatskog glasa na uređaju, pa su najave na engleskom. Upute su u Postavkama.": "There is no Croatian voice on this device, so announcements are in English.",
+  "Besplatan servis za analizu treninga. Na intervals.icu otvori": "A free training analysis service. On intervals.icu open", ", stvori": ", create an", "i zalijepi ga ovdje.": "and paste it here.",
+  "API ključ": "API key", "intervals.icu API ključ": "intervals.icu API key", "Spremi i provjeri": "Save and check", "Provjeravam…": "Checking…",
+  "Automatski pošalji svaku spremljenu vožnju na intervals.icu": "Send every saved ride to intervals.icu automatically",
+  "Ključ je postavljen na Vercelu (INTERVALS_API_KEY). Klikni Spremi i provjeri za provjeru.": "The key is set on Vercel (INTERVALS_API_KEY). Click Save and check to test it.",
+  "Nije povezano.": "Not connected.", "Ključ je upisan, ali još nije provjeren.": "The key is entered but not checked yet.",
+  "intervals.icu odspojen": "intervals.icu disconnected", "intervals.icu povezan": "intervals.icu connected", "intervals.icu ne prihvaća ovaj API ključ": "intervals.icu does not accept this API key",
+  "intervals.icu ne prihvaća API ključ. Provjeri ga u Postavkama.": "intervals.icu does not accept the API key. Check it in Settings.", "Vožnja je na intervals.icu": "The ride is on intervals.icu",
+  "Slanje radi samo na Vercel deployu (treba api/intervals.js)": "Uploading only works on a Vercel deploy (it needs api/intervals.js)",
+  "Sinkronizacija": "Sync", "Sinkroniziraj sada": "Sync now", "Sinkroniziram…": "Syncing…", "Još nije sinkronizirano.": "Not synced yet.",
+  "Sinkronizacija nije uključena. Na Vercelu otvori projekt →": "Sync is not set up. On Vercel open your project →", "i poveži ga s projektom (doda": "and connect it to the project (this adds",
+  "), pa": "), then", ". Nakon toga mobitel i tablet dijele vožnje, plan i postavke.": ". After that your phone and tablet share rides, plan and settings.",
+  "Prijava": "Login", "Odjavi se s ovog uređaja": "Log out on this device",
+  "Ovaj uređaj ostaje prijavljen godinu dana, i kad zatvoriš aplikaciju. Promjena lozinke na Vercelu (PEDALA_PASSWORD) odjavljuje sve uređaje.": "This device stays logged in for a year, even after you close the app. Changing the password on Vercel (PEDALA_PASSWORD) logs out every device.",
+  "Brzine": "Gears",
+  "24 virtualne brzine s istim omjerima kao u Zwiftu (0.75 do 5.49). Otpor se računa iz nagiba, brzine i omjera virtualne brzine prema stvarnom omjeru lančanik/Cog, pa zato upiši koliko zubi imaju tvoj prednji lančanik i Cog.":
+    "24 virtual gears with the same ratios as Zwift (0.75 to 5.49). Resistance comes from the gradient, your speed and the virtual gear against your real chainring/Cog ratio, so enter how many teeth your chainring and Cog have.",
+  "Automatsko spajanje": "Automatic connection",
+  "Trenažer, puls i Click koje si jednom spojio aplikacija sama spaja kad se upale. Prvi put ih spoji ručno.": "A trainer, heart rate strap or Click you connected once is connected automatically as soon as it is switched on. Connect them by hand the first time.",
+  "Potraži zapamćene uređaje": "Look for remembered devices",
+  "Spoji ga gumbom Click gore desno, nakon što ga odspojiš iz Zwifta. Click v2 ima dva dijela: spoji svaki posebno. Ako tipke rade krivo, postavi ih ispočetka.": "Connect it with the Click button at the top right, after disconnecting it from Zwift. Click v2 has two pods: connect each one. If the buttons do the wrong thing, set them up again.",
+  "Postavi tipke ispočetka": "Set up buttons again", "Zadnji paketi s Clicka": "Last packets from the Click", "Još ništa.": "Nothing yet.", "Tipkovnica": "Keyboard",
+  "Razmak: kreni / pauza. Strelice gore i dolje: intenzitet u ERG treningu ili brzina u slobodnoj vožnji.": "Space: start / pause. Up and down arrows: intensity in an ERG workout, or gear in free ride.",
+  // devices
+  "Direto XR-T se spaja preko Bluetootha (FTMS). Zatvori Zwift i ostale aplikacije koje ga drže spojenim.": "Smart trainers connect over Bluetooth (FTMS). Close Zwift and any other app that keeps the trainer connected.",
+  "Bluetooth trenažer": "Bluetooth trainer", "Chrome na Androidu ili laptopu": "Chrome on Android or a laptop", "Za isprobavanje bez trenažera": "For trying it out without a trainer", "Odustani": "Cancel",
+  "Spajam…": "Connecting…", "Ponovno spajam…": "Reconnecting…", "Trenažer": "Trainer", "Trenažer ponovno spojen": "Trainer reconnected", "Trenažer odspojen": "Trainer disconnected",
+  "Trenažer spojen": "Trainer connected", "Spajam Click…": "Connecting Click…", "Click spava…": "Click is asleep…", "Uređaj se ne javlja": "The device is not responding",
+  "Ovaj preglednik nema Web Bluetooth. Otvori u Chromeu preko https.": "This browser has no Web Bluetooth. Open it in Chrome over https.", "Ovaj preglednik nema Web Bluetooth": "This browser has no Web Bluetooth",
+  "Spajanje pulsmetra nije uspjelo": "Could not connect the heart rate strap",
+  "Postavi tipke na Clicku": "Set up the Click buttons", "Pritisni tipku za težu brzinu (+).": "Press the button for a harder gear (+).",
+  "Sad pritisni tipku za lakšu brzinu (−).": "Now press the button for an easier gear (−).",
+  "To je ista tipka kao za +. Pritisni tipku za lakšu brzinu (−), na drugom dijelu Clicka ako ga ima.": "That is the same button as +. Press the button for an easier gear (−), on the other Click pod if you have one.",
+  "Tipke na Clicku postavljene": "Click buttons set up", "Postavi tipke Clicka još jednom: sada se razlikuju lijevi i desni dio.": "Set up the Click buttons once more: the left and right pods are now told apart.",
+  "Nepoznata tipka na Clicku. Postavi tipke u Postavkama (Zwift Click → Postavi tipke ispočetka).": "Unknown Click button. Set the buttons up in Settings (Zwift Click → Set up buttons again).",
+  "Click ne odgovara. Ažuriraj mu firmware preko Zwift Companiona.": "The Click is not answering. Update its firmware with Zwift Companion.",
+  "Ovaj dio Clicka je zaključan. Spoji ga jednom na Zwift pa probaj ponovno.": "This Click pod is locked. Connect it to Zwift once, then try again.",
+  "Chrome ne pamti Bluetooth uređaje, pa se ne spajaju sami. Upute su u Postavkama, kod Automatskog spajanja.": "Chrome does not remember Bluetooth devices, so they don't connect by themselves. See Settings → Automatic connection.",
+  "Chrome nije zapamtio dopuštenje za tvoje uređaje. Spoji ih jednom ručno i od tada će se spajati sami.": "Chrome did not keep the permission for your devices. Connect them by hand once and from then on they connect by themselves.",
+  "Ovaj Chrome ne pamti Bluetooth uređaje.": "This Chrome does not remember Bluetooth devices.", "Otvori": "Open", ", potraži": ", search for", ", postavi na": ", set it to",
+  "i ponovno pokreni Chrome. Zatim jednom ručno spoji trenažer, puls i Click.": "and restart Chrome. Then connect the trainer, heart rate strap and Click by hand once.",
+  "Još nijedan uređaj nije zapamćen. Spoji ga jednom ručno gumbom gore desno.": "No device remembered yet. Connect one by hand with the buttons at the top right.",
+  "trenažer": "trainer", "pulsmetar": "heart rate strap", "čeka da se uređaj upali": "waiting for it to switch on", "spojen": "connected",
+  "nije se javio (otvori aplikaciju ponovno)": "did not show up (open the app again)",
+  // messages during the ride
+  "Nema pulsa: snaga ostaje ista dok pulsmetar ne proradi": "No heart rate: power stays the same until the strap works again",
+  "Kadenca je pala, olakšavam": "Cadence dropped, easing off", "Pauza: nastavi pedalirati za nastavak": "Paused: start pedalling to resume", "Nastavljam": "Resuming",
+  "Cijeli zaslon nije dostupan": "Full screen is not available",
+}));
+const EN_RX = [
+  [/^Brzina · omjer ([\d.]+)$/, "Gear · ratio $1"],
+  [/^Interval (\d+) od (\d+)$/, "Interval $1 of $2"],
+  [/^(\d+) od (\d+)$/, "$1 of $2"],
+  [/^od (\d+) odrađeno$/, "of $1 done"],
+  [/^Sljedeće: (\S+) na (\d+) W$/, "Next: $1 at $2 W"],
+  [/^Sljedeće: (\S+) na pulsu (\d+)$/, "Next: $1 at HR $2"],
+  [/^Sljedeće: (\S+) slobodno$/, "Next: $1 free"],
+  [/^Još (\d+(?::\d+)+)$/, "$1 left"],
+  [/^Još (\d+) m uspona$/, "$1 m of climbing left"],
+  [/^visina (\d+) m$/, "altitude $1 m"],
+  [/^Cilj · puls (\d+)$/, "Target · HR $1"],
+  [/^puls (\d+)$/, "HR $1"], [/^cilj (\d+) W$/, "target $1 W"], [/^nagib (-?[\d.]+) %$/, "grade $1 %"],
+  [/^Dionica (\d+)(.*)$/, "Lap $1$2"],
+  [/^Tjedan (\d+) od (\d+)$/, "Week $1 of $2"], [/^[Tt]jedan (\d+)$/, (m, n) => (m[0] === "T" ? "Week " : "week ") + n],
+  [/^Počinje (.+)$/, "Starts $1"],
+  [/^(\d+),(\d) h$/, "$1.$2 h"], [/^(\d+),(\d)$/, "$1.$2"],
+  [/^prosječno (.+)$/, "average $1"], [/^od (-?\d+) do (-?\d+) m$/, "from $1 to $2 m"],
+  [/^Najbolje: (.+)$/, "Best: $1"], [/^6 tj\.: (.+)$/, "6 wk: $1"],
+  [/^Postavi (\d+) W$/, "Set $1 W"],
+  [/^\(trenutni (\d+) W\)\. Ako ti na treninzima bude preteško, spusti ga 5%\.$/, "(now $1 W). If workouts feel too hard, lower it by 5%."],
+  [/^FTP postavljen na (\d+) W$/, "FTP set to $1 W"],
+  [/^Plan: (.+) odrađen$/, (m, a) => `Plan: ${tr(a)} done`],
+  [/^Spremanje nije uspjelo: (.*)$/, (m, a) => "Saving failed: " + tr(a)],
+  [/^Spajanje nije uspjelo: (.*)$/, (m, a) => "Could not connect: " + tr(a)],
+  [/^Spajanje Clicka nije uspjelo: (.*)$/, (m, a) => "Could not connect the Click: " + tr(a)],
+  [/^Čekam: (.+)$/, (m, a) => "Waiting: " + tr(a)],
+  [/^Ukloniti kanal (.+)\?$/, "Remove channel $1?"], [/^Ukloniti playlistu (.+)\?$/, "Remove playlist $1?"],
+  [/^Dodan kanal (.+)$/, "Channel $1 added"], [/^Dodana playlista (.+)$/, "Playlist $1 added"],
+  [/^Prijedlozi za danas: (.+)$/, (m, a) => "Today's picks: " + tr(a)],
+  [/^Rezultati za „(.+)”$/, "Results for “$1”"],
+  [/^Nije učitano: (.*)$/, "Not loaded: $1"], [/^Pretraga nije uspjela: (.*)$/, "Search failed: $1"],
+  [/^Uvezeno treninga: (\d+)$/, "Workouts imported: $1"], [/^Uvezeno ruta: (\d+)$/, "Routes imported: $1"],
+  [/^Uvezeno novih vožnji: (\d+)$/, "New rides imported: $1"], [/^Izvezeno vožnji: (\d+)$/, "Rides exported: $1"],
+  [/^Izvoz nije uspio: (.*)$/, "Export failed: $1"],
+  [/^(.+\.(?:zwo|xml|gpx)): (.+)$/i, (m, f, e) => `${f}: ${tr(e)}`],
+  [/^Plan je složen od ponedjeljka\. Ipak krenuti od (.+)\?$/, "The plan is built to start on a Monday. Start on $1 anyway?"],
+  [/^Sinkronizacija nije uspjela: (.*)$/, (m, a) => "Sync failed: " + tr(a)],
+  [/^greška (\d+)$/, "error $1"], [/^vožnja se nije spremila \((\d+)\)$/, "a ride was not saved ($1)"],
+  [/^intervals\.icu greška (\d+)$/, "intervals.icu error $1"],
+  [/^Na intervals\.icu poslano vožnji: (\d+)$/, "Rides sent to intervals.icu: $1"],
+  [/^Povezano(?:: (.+))?\. Ako tablet nije na internetu, vožnje čekaju i pošalju se kad se veza vrati\.$/, (m, who) => `Connected${who ? ": " + who : ""}. When the tablet is offline, rides wait and are sent once it is back online.`],
+  [/^(.+): (\d+) rpm \(cilj (.+)\)$/, (m, a, b, c) => `${tr(a)}: ${b} rpm (target ${c})`],
+  [/^(.+): (\d+) (W|bpm) od (\d+) \((\d+)%\)$/, (m, a, b, u, c, d) => `${tr(a)}: ${b} ${u} of ${c} (${d}%)`],
+];
+const trMemo = new Map();
+function trOne(k){
+  const t = EN.get(k); if(t != null) return t;
+  for(const [rx, f] of EN_RX) if(rx.test(k)) return k.replace(rx, f);
+  return null;
+}
+/* Croatian text → English when the interface is English; anything unknown comes back unchanged */
+function tr(s){
+  if(UI === "hr" || s == null) return s;
+  const str = String(s), k = str.trim();
+  if(!k || !/\p{L}/u.test(k)) return str;
+  if(trMemo.has(k)) return str.replace(k, trMemo.get(k));
+  let t = trOne(k);
+  if(t == null && /\s[·—]\s/.test(k)){
+    const parts = k.split(/(\s[·—]\s)/), out = parts.map((p, i) => i % 2 ? p : trOne(p) ?? p).join("");
+    if(out !== k) t = out;
+  }
+  if(trMemo.size > 3000) trMemo.clear();
+  trMemo.set(k, t ?? k);
+  return t == null ? str : str.replace(k, t);
+}
+const TR_ATTRS = ["placeholder", "aria-label", "title"];
+function trEl(el){
+  for(const a of TR_ATTRS){ const v = el.getAttribute(a); if(v){ const t = tr(v); if(t !== v) el.setAttribute(a, t); } }
+}
+function trTree(n){
+  if(n.nodeType === 3){ const p = n.parentElement; if(!p || p.closest("[data-notr],script,style")) return; const v = n.nodeValue, t = tr(v); if(t !== v) n.nodeValue = t; return; }
+  if(n.nodeType !== 1 || n.closest("[data-notr],script,style")) return;
+  trEl(n);
+  const w = document.createTreeWalker(n, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, { acceptNode: x => x.nodeType === 1 && x.matches("[data-notr],script,style") ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT });
+  for(let x = w.nextNode(); x; x = w.nextNode()){
+    if(x.nodeType === 1) trEl(x);
+    else { const v = x.nodeValue, t = tr(v); if(t !== v) x.nodeValue = t; }
+  }
+}
+if(UI !== "hr"){
+  trTree(document.body);
+  new MutationObserver(ms => { for(const m of ms){
+    if(m.type === "childList") m.addedNodes.forEach(trTree);
+    else if(m.type === "characterData") trTree(m.target);
+    else if(m.target.nodeType === 1 && !m.target.closest("[data-notr]")) trEl(m.target);
+  } }).observe(document.body, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: TR_ATTRS });
+}
 /* heart-rate zones as fractions of max HR: [upper bound, colour, name] */
 const HR_ZONES = [[.6, "--z1", "Z1"], [.7, "--z2", "Z2"], [.8, "--z3", "Z3"], [.9, "--z4", "Z4"], [99, "--z6", "Z5"]];
 const hrZone = (hr, max = settings.maxHr) => hr ? HR_ZONES.findIndex(z => hr / max < z[0]) : -1;
@@ -1004,7 +1308,6 @@ function targetNow(){
 const hrTarget = s => Math.round(s.hr * settings.maxHr) + S.hrOff;
 const cadTxt = ([lo, hi]) => hi >= CAD_ANY ? `${lo}+` : `${lo}–${hi}`;
 const cadIn = (rpm, [lo, hi]) => rpm >= lo - 2 && rpm <= hi + 2;
-const cadSpeech = ([lo, hi]) => hi >= CAD_ANY ? `kadenca ${lo} i više` : `kadenca ${lo} do ${hi}`;
 /* heart-rate segment: nudge the ERG power toward the target heart rate. Heart rate lags power by
    a minute or so, hence the slow correction (max 1 W per second) and a ±2 bpm dead band. */
 function steerHr(c){
@@ -1040,11 +1343,11 @@ function lapTick(c, tgt){
     if(!S.lap || S.lap.seg !== c.i){
       const done = lapClose(); if(done) lapResult(done);
       lapOpen({ seg: c.i, name: `Interval ${c.i + 1}`, kind: c.s.free ? "free" : c.s.hr ? "hr" : "power", cadTgt: c.s.cad, note: c.s.note });
-      if(c.i === 0 && S.t <= 1) say(`Kreće trening. ${segSpeech(c.s)}.`);
+      if(c.i === 0 && S.t <= 1) say(() => `${L("Kreće trening.", "Workout starting.")} ${segSpeech(c.s)}.`);
     }
     // next segment in 10 seconds
     const nx = S.workout.segs[c.i + 1];
-    if(nx && Math.round(c.left) === 10 && c.s.d >= 20) say(`Za 10 sekundi: ${segSpeech(nx)}.`);
+    if(nx && Math.round(c.left) === 10 && c.s.d >= 20) say(() => `${L("Za 10 sekundi:", "In 10 seconds:")} ${segSpeech(nx)}.`);
   } else if(!S.workout){
     if(!S.lap) lapOpen({ name: `Dionica ${S.laps.length + 1}`, kind: "dist" });
     else if(S.dist - S.lap.d0 >= LAP_KM * 1000){ lapResult(lapClose()); lapOpen({ name: `Dionica ${S.laps.length + 1}`, kind: "dist" }); }
@@ -1060,66 +1363,110 @@ function lapResult(lap){
     // drills: report the cadence of the drill parts, stay quiet on recoveries
     if(lap.cadTgt[0] >= 100 || lap.cadTgt[1] <= 70){
       notify(`${lap.name}: ${lap.avgCad} rpm (cilj ${cadTxt(lap.cadTgt)})`);
-      say(`Prosječna kadenca ${lap.avgCad}.`);
+      say(() => L(`Prosječna kadenca ${lap.avgCad}.`, `Average cadence ${lap.avgCad}.`));
     }
     return;
   }
   if(lap.kind === "dist"){
     notify(`${lap.name}: ${fmtTime(lap.dur)} · ${lap.avgP} W${lap.avgHr ? " · " + lap.avgHr + " bpm" : ""}`);
-    say(`${Math.round(S.dist / 1000)} ${plural(Math.round(S.dist / 1000), "kilometar", "kilometra", "kilometara")}. Zadnjih ${LAP_KM} za ${sayDur(lap.dur)}, prosjek ${lap.avgP} ${plural(lap.avgP, "vat", "vata", "vata")}.`);
+    const km = Math.round(S.dist / 1000);
+    say(() => L(`${km} ${plural(km, "kilometar", "kilometra", "kilometara")}. Zadnjih ${LAP_KM} za ${sayDur(lap.dur)}, prosjek ${watts(lap.avgP)}.`,
+      `${km} kilometers. Last ${LAP_KM} in ${sayDur(lap.dur)}, average ${watts(lap.avgP)}.`));
   } else if(lap.score != null && lap.dur >= 30 && !S.workout?.test){
     const what = lap.kind === "hr" ? `${lap.avgHr} bpm od ${lap.tgt}` : `${lap.avgP} W od ${lap.tgt}`;
     notify(`${lap.name}: ${what} (${lap.score}%)`);
-    say(lap.kind === "hr" ? `Interval gotov. Prosječni puls ${lap.avgHr}.` : `Interval gotov. Prosjek ${lap.avgP} ${plural(lap.avgP, "vat", "vata", "vata")}, ${lap.score} posto.`);
+    say(() => lap.kind === "hr" ? L(`Interval gotov. Prosječni puls ${lap.avgHr}.`, `Interval done. Average heart rate ${lap.avgHr}.`)
+      : L(`Interval gotov. Prosjek ${watts(lap.avgP)}, ${lap.score} posto.`, `Interval done. Average ${watts(lap.avgP)}, ${lap.score} percent.`));
   }
 }
 
-/* ============ voice ============ */
+/* ============ voice ============
+   Announcements are spoken entirely in one language. Croatian needs a Croatian voice on the device; without one
+   (or when English is picked in Settings) every sentence and number is English, so voices never mix languages. */
 const plural = (n, one, few, many) => { n = Math.abs(Math.round(n)); const a = n % 10, b = n % 100; return a === 1 && b !== 11 ? one : a >= 2 && a <= 4 && (b < 12 || b > 14) ? few : many; };
-function sayDur(sec){
-  sec = Math.round(sec); const m = Math.floor(sec / 60), x = sec % 60;
-  const mm = m ? `${m} ${plural(m, "minuta", "minute", "minuta")}` : "", ss = x ? `${x} ${plural(x, "sekunda", "sekunde", "sekundi")}` : "";
-  return [mm, ss].filter(Boolean).join(" i ");
+const isHr = v => /^hr([-_]|$)/i.test(v?.lang || ""), isEn = v => /^en([-_]|$)/i.test(v?.lang || "");
+const voices = () => window.speechSynthesis?.getVoices() || [];
+let hrVoice = null;   // the voice in use (name kept from when it could only be Croatian)
+/* voice and language: a voice picked by hand wins; otherwise Croatian if asked for (or "auto" with a Croatian interface) and available, else English */
+function pickVoice(){
+  const vs = voices(), byName = vs.find(v => v.voiceURI === settings.voiceName);
+  if(byName) return byName;
+  const want = settings.voiceLang || "auto", hr = vs.find(isHr);
+  if((want === "hr" || want === "auto" && UI === "hr") && hr) return hr;
+  return vs.find(v => isEn(v) && /GB|US/i.test(v.lang) && v.localService) || vs.find(isEn) || null;
 }
+const spLang = () => isHr(hrVoice || pickVoice()) ? "hr" : "en";
+const L = (hr, en) => spLang() === "hr" ? hr : en;
+const watts = n => L(`${n} ${plural(n, "vat", "vata", "vata")}`, `${n} ${n === 1 ? "watt" : "watts"}`);
+const NOTE_EN = { "Visoka kadenca, mirno sjedi": "High cadence, stay seated", "Visoka kadenca": "High cadence", "Niska kadenca": "Low cadence",
+  "Niska kadenca, teški gaz": "Low cadence, big gear", "Samo lijeva noga": "Left leg only", "Samo desna noga": "Right leg only", "Obje noge": "Both legs" };
+function sayDur(sec){
+  sec = Math.round(sec); const m = Math.floor(sec / 60), x = sec % 60, hr = spLang() === "hr";
+  const mm = m ? (hr ? `${m} ${plural(m, "minuta", "minute", "minuta")}` : `${m} ${m === 1 ? "minute" : "minutes"}`) : "";
+  const ss = x ? (hr ? `${x} ${plural(x, "sekunda", "sekunde", "sekundi")}` : `${x} ${x === 1 ? "second" : "seconds"}`) : "";
+  return [mm, ss].filter(Boolean).join(hr ? " i " : " and ");
+}
+const cadSay = ([lo, hi]) => hi >= CAD_ANY ? L(`kadenca ${lo} i više`, `cadence ${lo} or more`) : L(`kadenca ${lo} do ${hi}`, `cadence ${lo} to ${hi}`);
 function segSpeech(sg){
-  const cue = sg.note ? sg.note + ". " : "", cad = sg.cad ? ", " + cadSpeech(sg.cad) : "";
-  return cue + segSpeechPower(sg) + cad;
+  const note = sg.note ? L(sg.note, NOTE_EN[sg.note] || sg.note) + ". " : "", cad = sg.cad ? ", " + cadSay(sg.cad) : "";
+  return note + segSpeechPower(sg) + cad;
 }
 function segSpeechPower(sg){
   const w = S.workout, d = sayDur(sg.d);
-  if(sg.free) return `${d} slobodno`;
-  if(sg.hr) return `${d} na pulsu ${hrTarget(sg)}`;
+  if(sg.free) return L(`${d} slobodno`, `${d} free riding`);
+  if(sg.hr) return L(`${d} na pulsu ${hrTarget(sg)}`, `${d} at heart rate ${hrTarget(sg)}`);
   const a = Math.round(toWatts(w, sg.lo) * S.bias), b = Math.round(toWatts(w, sg.hi) * S.bias);
-  return Math.abs(a - b) < 5 ? `${d} na ${a} ${plural(a, "vat", "vata", "vata")}` : `${d}, od ${a} do ${b} ${plural(b, "vat", "vata", "vata")}`;
-}
-/* The voice is the one picked in Settings, else a Croatian one. Without a Croatian voice the phone would
-   read the Croatian text with its default voice (often German or English), so then it stays silent
-   and says once in Settings how to install one. */
-let hrVoice = null;
-const voices = () => window.speechSynthesis?.getVoices() || [];
-function pickVoice(){
-  const vs = voices();
-  return vs.find(v => v.voiceURI === settings.voiceName) || vs.find(v => /^hr([-_]|$)/i.test(v.lang)) || null;
+  return Math.abs(a - b) < 5 ? L(`${d} na ${watts(a)}`, `${d} at ${watts(a)}`) : L(`${d}, od ${a} do ${watts(b)}`, `${d}, from ${a} to ${watts(b)}`);
 }
 function say(text, force = false){
   if(!(settings.voice || force) || !("speechSynthesis" in window)) return;
   try{
     hrVoice ||= pickVoice();
-    if(!hrVoice){ if(!say.warned && voices().length){ say.warned = true; notify("Nema hrvatskog glasa na uređaju. Upute su u Postavkama, kod Glasa za najave."); } return; }
-    const u = new SpeechSynthesisUtterance(text); u.voice = hrVoice; u.lang = hrVoice.lang; u.rate = 1.05;
-    speechSynthesis.speak(u);
+    if(!hrVoice) return;
+    if(settings.voiceLang === "hr" && !isHr(hrVoice) && !say.warned){ say.warned = true; notify("Nema hrvatskog glasa na uređaju, pa su najave na engleskom. Upute su u Postavkama."); }
+    const u = new SpeechSynthesisUtterance(typeof text === "function" ? text() : text); u.voice = hrVoice; u.lang = hrVoice.lang; u.rate = 1.05;
+    duckStart(u); speechSynthesis.speak(u);
   }catch{}
 }
 function fillVoices(){
-  const sel = $("#settings-form").voiceName, vs = voices(), hr = vs.filter(v => /^hr([-_]|$)/i.test(v.lang));
-  sel.innerHTML = `<option value="">Automatski (hrvatski)</option>` + [...hr, ...vs.filter(v => !hr.includes(v))]
+  const f = $("#settings-form"), sel = f.voiceName, vs = voices(), hr = vs.filter(isHr), en = vs.filter(v => isEn(v) && !hr.includes(v));
+  sel.innerHTML = `<option value="">${tr("Automatski")}</option>` + [...hr, ...en, ...vs.filter(v => !hr.includes(v) && !en.includes(v))]
     .map(v => `<option value="${v.voiceURI.replace(/"/g, "&quot;")}">${v.name.replace(/</g, "")} · ${v.lang}</option>`).join("");
   sel.value = vs.some(v => v.voiceURI === settings.voiceName) ? settings.voiceName : "";
-  const note = $("#voice-note");
-  note.hidden = hr.length > 0 || !vs.length;
-  note.innerHTML = "Na ovom uređaju nema hrvatskog glasa, pa su najave utišane da ih ne čita njemački ili engleski glas. Na Androidu: <b>Postavke → Opće upravljanje → Jezik → Pretvaranje teksta u govor → Google → Instaliraj glasovne podatke → Hrvatski</b>, pa ponovno otvori Pedalu. Ili ovdje odaberi neki drugi glas.";
+  f.voiceLang.value = settings.voiceLang || "auto";
+  const note = $("#voice-note"), using = pickVoice();
+  note.hidden = !vs.length;
+  note.innerHTML = !using ? "Na ovom uređaju nema glasa za najave."
+    : ui(`Najave su na jeziku: <b>${isHr(using) ? "hrvatski" : "engleski"}</b>`, `Announcements are in <b>${isHr(using) ? "Croatian" : "English"}</b>`) + ` (${using.name.replace(/</g, "")}).`
+      + (hr.length || UI !== "hr" ? "" : " Za hrvatske najave instaliraj hrvatski glas: <b>Postavke → Opće upravljanje → Jezik → Pretvaranje teksta u govor → Google → Instaliraj glasovne podatke → Hrvatski</b> (na Samsung tabletu: potraži <b>Tekst u govor</b>), pa ponovno otvori Pedalu.");
 }
 window.speechSynthesis?.addEventListener?.("voiceschanged", () => { hrVoice = null; say.warned = false; if($("#view-settings").classList.contains("active")) fillVoices(); });
+
+/* ---- turn YouTube (video and music) down while speaking, then back to the volume it had ---- */
+const ytVolume = new WeakMap();   // player window → last volume it reported
+window.addEventListener("message", e => {
+  if(!/youtube(-nocookie)?\.com$/.test(new URL(e.origin || "http://x").hostname)) return;
+  let d; try{ d = typeof e.data === "string" ? JSON.parse(e.data) : e.data; }catch{ return; }
+  const f = ytFrames().find(x => x.contentWindow === e.source);
+  if(d?.event === "infoDelivery" && typeof d.info?.volume === "number" && f && f.dataset.ducked == null) ytVolume.set(e.source, d.info.volume);   // not our own lowered volume
+});
+/* ask a player to report its state (volume) back to us */
+function ytListen(f){ f.addEventListener("load", () => { try{ f.contentWindow.postMessage(JSON.stringify({ event: "listening", id: f.id || "music" }), "*"); }catch{} }); }
+const ytFrames = () => [$("#vid-frame"), $("#music-frame iframe")].filter(Boolean);
+const ytSend = (f, func, args = []) => { try{ f.contentWindow.postMessage(JSON.stringify({ event: "command", func, args }), "*"); }catch{} };
+const duck = { n: 0, t: null };
+function duckStart(u){
+  const end = () => { duck.n = Math.max(0, duck.n - 1); if(!duck.n){ clearTimeout(duck.t); duck.t = setTimeout(unduck, 400); } };
+  u.onend = u.onerror = end;
+  setTimeout(() => { if(duck.n) end(); }, 1500 + String(u.text).length * 90);    // some Android voices never fire onend
+  duck.n++; clearTimeout(duck.t);
+  for(const f of ytFrames()) if(f.dataset.ducked == null){ const v = ytVolume.get(f.contentWindow) ?? 100; f.dataset.ducked = v; ytSend(f, "setVolume", [Math.round(v * .25)]); }
+}
+/* only players we turned down get their volume back; a player opened meanwhile is left alone */
+function unduck(){
+  if(duck.n) return;
+  for(const f of ytFrames()) if(f.dataset.ducked != null){ ytSend(f, "setVolume", [+f.dataset.ducked]); delete f.dataset.ducked; }
+}
 /* message as a toast and, in fullscreen, over the video */
 function notify(msg){
   if(!overlayOn()) toast(msg);
@@ -1192,7 +1539,7 @@ function start(){
 }
 function pause(auto){ S.running = false; S.autoPaused = !!auto; S.soft = null; applyControl(); if(settings.pauseVideo) yt("pauseVideo"); if(auto) notify("Pauza: nastavi pedalirati za nastavak"); render(); }
 function resume(){ S.running = true; S.autoPaused = false; S.idle = 0; softStart(); S.hrHold = 60; applyControl(); yt("playVideo"); toast("Nastavljam"); }
-function finishWorkout(){ S.running = false; S.soft = null; applyControl(); if(settings.beep) beep(660, .4); say(S.route ? "Stigao si na cilj." : "Trening je gotov. Bravo."); openSummary(); }
+function finishWorkout(){ S.running = false; S.soft = null; applyControl(); if(settings.beep) beep(660, .4); say(() => S.route ? L("Stigao si na cilj.", "You made it to the finish.") : L("Trening je gotov. Bravo.", "Workout complete. Well done.")); openSummary(); }
 
 /* ============ metrics ============ */
 function metrics(samples, ftp){
@@ -1274,7 +1621,7 @@ function setVideo(id){
   if(!id){ showPicker(); return; }
   const f = document.createElement("iframe"); f.id = "vid-frame";
   f.src = `https://www.youtube.com/embed/${id}?enablejsapi=1&playsinline=1&rel=0&modestbranding=1&fs=0${S.running ? "&autoplay=1" : ""}`;
-  f.allow = "autoplay; encrypted-media; picture-in-picture; fullscreen"; f.title = "YouTube video";
+  f.allow = "autoplay; encrypted-media; picture-in-picture; fullscreen"; f.title = "YouTube video"; ytListen(f);
   st.prepend(f); hidePicker(); store.set("video", id); store.set("stageMode", "video");
 }
 /* no video: the stage shows the workout profile with the metrics, like fullscreen */
@@ -1303,7 +1650,7 @@ function rememberVideo(v){ const r = recentVideos().filter(x => x.id !== v.id); 
 function isoDur(d){ const m = String(d).match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/); return m ? (+m[1]||0)*3600 + (+m[2]||0)*60 + (+m[3]||0) : 0; }
 const unesc = t => { const e = document.createElement("textarea"); e.innerHTML = t; return e.value; };
 function vidCard(v, onPick = () => { rememberVideo(v); setVideo(v.id); }){
-  const b = document.createElement("button"); b.className = "vcard"; b.type = "button";
+  const b = document.createElement("button"); b.className = "vcard"; b.type = "button"; b.dataset.notr = "";
   b.innerHTML = `<div class="th"><img loading="lazy" alt=""></div><b></b><small></small>`;
   b.querySelector("img").src = v.thumb || `https://i.ytimg.com/vi/${v.id}/mqdefault.jpg`;
   if(v.dur){ const d = document.createElement("span"); d.className = "dur"; d.textContent = fmtTime(v.dur); b.querySelector(".th").append(d); }
@@ -1358,8 +1705,8 @@ async function renderFeed(){
   // channels: chips to remove, then the newest uploads of all of them mixed
   for(const c of chans){
     const b = document.createElement("button"); b.type = "button"; b.className = "ch"; b.title = "Ukloni kanal";
-    b.innerHTML = `${c.thumb ? `<img alt="" src="${c.thumb}">` : ""}<span></span> ✕`; b.querySelector("span").textContent = c.title;
-    b.onclick = () => { if(confirm(`Ukloniti kanal ${c.title}?`)){ store.set("ytChannels", ytChannels().filter(x => x.id !== c.id)); renderFeed(); } };
+    b.innerHTML = `${c.thumb ? `<img alt="" src="${c.thumb}">` : ""}<span data-notr></span> ✕`; b.querySelector("span").textContent = c.title;
+    b.onclick = () => { if(confirm(tr(`Ukloniti kanal ${c.title}?`))){ store.set("ytChannels", ytChannels().filter(x => x.id !== c.id)); renderFeed(); } };
     $("#feed-ch-list").append(b);
   }
   $("#feed-ch-form").onsubmit = async e => { e.preventDefault(); const t = $("#feed-ch").value.trim(); if(!t) return;
@@ -1375,9 +1722,9 @@ async function renderFeed(){
   } else $("#feed-ch-videos").innerHTML = `<p class="note">Dodaj kanale koje voliš gledati, npr. <b>@imekanala</b> ili link kanala, pa će ovdje biti njihovi najnoviji videi.</p>`;
   for(const pl of lists){
     const sec = document.createElement("div"), gid = "feed-pl-" + pl.id.replace(/[^\w-]/g, "");
-    sec.innerHTML = `<div class="vsect" style="font-size:17px;margin-top:12px"><span></span> <button class="more" type="button">ukloni</button></div><div class="vgrid" id="${gid}"></div>`;
+    sec.innerHTML = `<div class="vsect" style="font-size:17px;margin-top:12px"><span data-notr></span> <button class="more" type="button">ukloni</button></div><div class="vgrid" id="${gid}"></div>`;
     sec.querySelector("span").textContent = pl.title;
-    sec.querySelector("button").onclick = () => { if(confirm(`Ukloniti playlistu ${pl.title}?`)){ store.set("ytPlaylists", ytPlaylists().filter(x => x.id !== pl.id)); renderFeed(); } };
+    sec.querySelector("button").onclick = () => { if(confirm(tr(`Ukloniti playlistu ${pl.title}?`))){ store.set("ytPlaylists", ytPlaylists().filter(x => x.id !== pl.id)); renderFeed(); } };
     $("#feed-pls").append(sec);
     cached("pl:" + pl.id, 3 * 36e5, () => ytApi({ playlist: pl.id })).then(r => fillGrid(gid, r.items.slice(0, 12), "Playlista je prazna."), err => fillGrid(gid, [], feedErr(err)));
   }
@@ -1449,9 +1796,9 @@ function setMusic(m, play = true){
   const q = `enablejsapi=1&playsinline=1&rel=0${play ? "&autoplay=1" : ""}`, f = document.createElement("iframe");
   f.src = m.id ? `https://www.youtube.com/embed/${m.id}?${q}${m.list ? "&list=" + encodeURIComponent(m.list) : ""}`
     : `https://www.youtube.com/embed/videoseries?list=${encodeURIComponent(m.list)}&${q}`;
-  f.allow = "autoplay; encrypted-media"; f.title = "Glazba";
+  f.allow = "autoplay; encrypted-media"; f.title = "Glazba"; ytListen(f);
   fr.append(f); box.hidden = false; box.classList.remove("min");
-  musicOn = play; $("#mus-play").textContent = play ? "⏸" : "▶"; $("#mus-prev").hidden = $("#mus-next").hidden = !m.list; $("#music-title").textContent = m.title || (m.list ? "Playlista" : "Glazba");
+  musicOn = play; $("#mus-play").textContent = play ? "⏸" : "▶"; $("#mus-prev").hidden = $("#mus-next").hidden = !m.list; $("#music-title").textContent = m.title || tr(m.list ? "Playlista" : "Glazba");
   store.set("music", m);
 }
 const MUS_CHIPS = ["Workout mix", "Techno za trening", "Rock za trening", "Drum and bass", "Lo-fi", "Hrvatski hitovi", "Epska motivacija"];
@@ -1491,7 +1838,7 @@ $("#mus-play").onclick = () => { musicOn = !musicOn; musicCmd(musicOn ? "playVid
 $("#mus-min").onclick = () => { const m = $("#music"); m.classList.toggle("min"); $("#mus-min").textContent = m.classList.contains("min") ? "+" : "–"; };
 $("#btn-dash").onclick = () => setDash();
 $("#vid-long").addEventListener("change", () => renderFeed());
-$("#btn-voice-test").onclick = () => { hrVoice = null; say("Za 10 sekundi: 3 minute na 265 vata, kadenca 90 do 100.", true); };
+$("#btn-voice-test").onclick = () => { hrVoice = null; fillVoices(); say(() => L("Za 10 sekundi: 3 minute na 265 vata, kadenca 90 do 100.", "In 10 seconds: 3 minutes at 265 watts, cadence 90 to 100."), true); };
 
 /* ============ sound + wake lock ============ */
 let actx;
@@ -1667,12 +2014,12 @@ function drawProfile(cv = $("#profile")){
     const sm = S.samples.slice(-win);
     for(const s of sm){ const x = (s[0] - (S.t - win)) / win * W, f = s[1] / settings.ftp; g.fillStyle = zoneColor(f); g.fillRect(x, H - Math.min(1, f / maxF) * H, Math.max(1, W / win + .5), H); }
     drawHr(g, sm.map(s => [(s[0] - (S.t - win)) / win * W, s[3]]), H, lw);
-    if(!sm.length){ g.fillStyle = cssVar("--muted"); g.font = "500 14px Barlow, system-ui"; g.fillText("Ovdje se crta snaga zadnjih 20 minuta", 0, H / 2); }
+    if(!sm.length){ g.fillStyle = cssVar("--muted"); g.font = "500 14px Barlow, system-ui"; g.fillText(tr("Ovdje se crta snaga zadnjih 20 minuta"), 0, H / 2); }
   }
 }
 
 function setWorkout(w){
-  if(S.started && !confirm("Trenutna vožnja će se nastaviti s novim treningom. Nastaviti?")) return;
+  if(S.started && !confirm(tr("Trenutna vožnja će se nastaviti s novim treningom. Nastaviti?"))) return;
   S.workout = w; S.route = null; S.woT = 0; S.lastSeg = -1; S.bias = 1; S.hrOff = 0; S.hrP = null; S.lap = null; store.set("lastRoute", null);
   $("#wo-name").textContent = w ? w.name : "Slobodna vožnja";
   $("#wo-meta").textContent = w && !w.test ? `· ${fmtTime(totalDur(w))}` : "";
@@ -1681,7 +2028,7 @@ function setWorkout(w){
 }
 
 function setRoute(r){
-  if(S.started && !confirm("Trenutna vožnja će se nastaviti na novoj ruti od početka. Nastaviti?")) return;
+  if(S.started && !confirm(tr("Trenutna vožnja će se nastaviti na novoj ruti od početka. Nastaviti?"))) return;
   S.workout = null; S.route = r; S.dist = 0; S.v = 0; S.bias = 1;
   $("#wo-name").textContent = r.name;
   $("#wo-meta").textContent = `· ${(r.len / 1000).toFixed(1)} km · ↑${r.gain} m`;
@@ -1697,7 +2044,7 @@ function renderRoutes(){
     el.querySelector("h3").textContent = r.name;
     el.querySelector("p").textContent = `${(r.len / 1000).toFixed(1)} km · ↑${r.gain} m · prosječno ${avg.toFixed(1)} % · od ${Math.round(r.minEle)} do ${Math.round(r.maxEle)} m${r.desc ? " · " + r.desc : ""}`;
     el.querySelector("[data-pick]").onclick = () => setRoute(r);
-    el.querySelector("[data-del]")?.addEventListener("click", () => { if(confirm("Ukloniti rutu?")){ store.set("routes", routes().filter(x => x.id !== r.id)); renderRoutes(); } });
+    el.querySelector("[data-del]")?.addEventListener("click", () => { if(confirm(tr("Ukloniti rutu?"))){ store.set("routes", routes().filter(x => x.id !== r.id)); renderRoutes(); } });
     list.append(el);
     requestAnimationFrame(() => { const cv = el.querySelector("canvas"); const [g, W, H] = sizeCanvas(cv); const span = (r.maxEle - r.minEle) || 1;
       for(let x = 0; x < W; x++){ const d0 = x / W * r.len, d1 = (x + 1) / W * r.len, gr = colGrade(r, d0, d1);
@@ -1746,11 +2093,11 @@ async function renderHistory(){
       ${r.icu?.status === "error" ? `<p style="color:var(--z5)">intervals.icu: ${String(r.icu.error).replace(/[<>&]/g, "")}</p>` : ""}
       <p>Najbolje: 5 s ${m.best.s5} W · 1 min ${m.best.m1} W · 5 min ${m.best.m5 || "–"} W · 20 min ${m.best.m20 || "–"} W</p></div>
       <div class="acts"><button class="btn small primary" data-rep>Izvještaj</button>${icuButton(r)}<button class="btn small" data-fit>.FIT</button><button class="btn small danger" data-del>Obriši</button></div><canvas></canvas>`;
-    el.querySelector("h3").textContent = `${r.name} · ${new Date(r.start).toLocaleDateString("hr-HR", { weekday: "short", day: "numeric", month: "numeric" })} ${new Date(r.start).toLocaleTimeString("hr-HR", { hour: "2-digit", minute: "2-digit" })}`;
+    el.querySelector("h3").textContent = `${r.name} · ${new Date(r.start).toLocaleDateString(LOC, { weekday: "short", day: "numeric", month: "numeric" })} ${new Date(r.start).toLocaleTimeString(LOC, { hour: "2-digit", minute: "2-digit" })}`;
     el.querySelector("[data-fit]").onclick = () => downloadFit(r);
     el.querySelector("[data-rep]").onclick = () => openReport(r);
     el.querySelector("[data-icu]")?.addEventListener("click", () => queueIcu(r));
-    el.querySelector("[data-del]").onclick = async () => { if(confirm("Obrisati ovu vožnju? Obrisat će se i na drugim uređajima.")){
+    el.querySelector("[data-del]").onclick = async () => { if(confirm(tr("Obrisati ovu vožnju? Obrisat će se i na drugim uređajima."))){
       await dbDel(r.id); store.set("syncDeleted", [...store.get("syncDeleted", []), r.id]); syncSoon(); renderHistory(); } };
     list.append(el);
     requestAnimationFrame(() => { const cv = el.querySelector("canvas"); const [g, W, H] = sizeCanvas(cv); const n = r.samples.length;
@@ -1769,7 +2116,7 @@ const DAY = 864e5, BEST = [["s5", "5 s"], ["m1", "1 min"], ["m5", "5 min"], ["m2
 const dayStart = t => { const d = new Date(t); d.setHours(0, 0, 0, 0); return d.getTime(); };
 const addDays = (t, n) => { const d = new Date(t); d.setDate(d.getDate() + n); return d.getTime(); };
 const weekStart = t => { const d = new Date(dayStart(t)); return addDays(d.getTime(), -((d.getDay() + 6) % 7)); };
-const shortDate = t => { const d = new Date(t); return `${d.getDate()}.${d.getMonth() + 1}.`; };
+const shortDate = t => { const d = new Date(t); return UI === "hr" ? `${d.getDate()}.${d.getMonth() + 1}.` : `${d.getDate()}/${d.getMonth() + 1}`; };
 const niceStep = v => { const p = 10 ** Math.floor(Math.log10(v)), f = v / p; return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10) * p; };
 /* fitness (CTL), fatigue (ATL) and form (TSB) per day, exponentially weighted like TrainingPeaks */
 function pmc(rides){
@@ -1822,7 +2169,7 @@ function drawProgress(){
   days.forEach((d, i) => { if(new Date(d.t).getDate() === 1 || (n < 40 && i % 7 === 0)) c1.xLabel(X1(i), shortDate(d.t)); });
   const last = days[n - 1];
   c1.g.textAlign = "left"; c1.g.textBaseline = "top"; c1.g.fillStyle = cssVar("--text"); c1.g.font = "600 12px Barlow, system-ui";
-  c1.g.fillText(`Danas: kondicija ${Math.round(last.ctl)} · umor ${Math.round(last.atl)} · forma ${Math.round(last.tsb)}`, c1.L + 6, c1.T + 2);
+  c1.g.fillText(ui(`Danas: kondicija ${Math.round(last.ctl)} · umor ${Math.round(last.atl)} · forma ${Math.round(last.tsb)}`, `Today: fitness ${Math.round(last.ctl)} · fatigue ${Math.round(last.atl)} · form ${Math.round(last.tsb)}`), c1.L + 6, c1.T + 2);
 
   // weekly volume, last 12 weeks
   const w0 = weekStart(now), weeks = [];
@@ -1870,7 +2217,7 @@ async function importBackup(file){
   const merge = (key, list) => { const cur = store.get(key, []), ids = new Set(cur.map(x => x.id)); return store.set(key, cur.concat((list || []).filter(x => x?.id && !ids.has(x.id)))); };
   merge("workouts", data.workouts);
   if(!merge("routes", data.routes)) toast("Rute nisu stale u preglednik");
-  if(data.settings && confirm("Preuzeti i postavke iz kopije (FTP, težina, brzine)?")){ Object.assign(settings, data.settings); store.set("settings", settings); fillSettings(); }
+  if(data.settings && confirm(tr("Preuzeti i postavke iz kopije (FTP, težina, brzine)?"))){ Object.assign(settings, data.settings); store.set("settings", settings); fillSettings(); }
   toast(`Uvezeno novih vožnji: ${n}`); renderHistory();
 }
 $("#btn-backup").onclick = () => exportBackup().catch(e => toast("Izvoz nije uspio: " + e.message));
@@ -1905,7 +2252,7 @@ async function icuSaveKey(){
 async function icuUpload(r){
   try{
     const j = await icuCall({ action: "upload", fit: b64(encodeFit(r)), name: r.name, external_id: r.id,
-      description: `Pedala · ${fmtTime(r.m.duration)} · ${r.m.avgP} W prosj. · NP ${r.m.np} W · TSS ${r.m.tss}` });
+      description: `Pedala · ${fmtTime(r.m.duration)} · ${r.m.avgP} W ${ui("prosj.", "avg")} · NP ${r.m.np} W · TSS ${r.m.tss}` });
     r.icu = { status: "done", activityId: j.id != null ? String(j.id) : null }; await dbPut(r); return true;
   }catch(e){
     if(icuAuthError(e)){ toast("intervals.icu ne prihvaća API ključ. Provjeri ga u Postavkama."); return false; }   // ride stays queued
@@ -1993,7 +2340,7 @@ const plan = () => store.get("plan", null);
 const ymd = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const fromYmd = t => { const [y, m, d] = t.split("-").map(Number); return new Date(y, m - 1, d); };
 const plusDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
-const shortDay = d => d.toLocaleDateString("hr-HR", { weekday: "short", day: "numeric", month: "numeric" });
+const shortDay = d => d.toLocaleDateString(LOC, { weekday: "short", day: "numeric", month: "numeric" });
 function nextMonday(){ const d = new Date(); d.setHours(0, 0, 0, 0); return plusDays(d, ((8 - d.getDay()) % 7) || 7); }
 /* every session of the running plan with its date and state */
 function planSessions(p = plan()){
@@ -2022,11 +2369,12 @@ function renderPlan(){
   if(!p){
     const tw = PLAN.weeks.map(w => w.map(k => PLAN_WO[k.startsWith("b-") ? k : "p-" + k]));
     box.innerHTML = `<div class="plan-card"><h3>${PLAN.name}</h3>
-      <p>Utorkom prag (threshold), četvrtkom VO2max, oba do 30 minuta: teže postaju gušćim intervalima, ne dužim treningom. Nedjeljom vožnja u zoni 2 raste od 50 minuta do 3 sata. Tjedni 4, 8 i 12 su lakši, a 14. završava ramp testom.</p>
-      <p>Najduži trening preko tjedna: ${Math.max(...tw.flatMap(w => w.slice(0, 2)).map(woMin))} min · najduža nedjelja: ${Math.max(...tw.map(w => woMin(w[2])))} min · ukupno ${tw.length * 3} treninga.</p>
+      <p>${ui("Utorkom prag (threshold), četvrtkom VO2max, oba do 30 minuta: teže postaju gušćim intervalima, ne dužim treningom. Nedjeljom vožnja u zoni 2 raste od 50 minuta do 3 sata. Tjedni 4, 8 i 12 su lakši, a 14. završava ramp testom.",
+        "Threshold on Tuesdays, VO2max on Thursdays, both 30 minutes at most: they get harder through denser intervals, not longer sessions. The Sunday Zone 2 ride grows from 50 minutes to 3 hours. Weeks 4, 8 and 12 are easier, and week 14 ends with a ramp test.")}</p>
+      <p>${ui("Najduži trening preko tjedna", "Longest weekday session")}: ${Math.max(...tw.flatMap(w => w.slice(0, 2)).map(woMin))} min · ${ui("najduža nedjelja", "longest Sunday")}: ${Math.max(...tw.map(w => woMin(w[2])))} min · ${ui("ukupno", "total")} ${tw.length * 3} ${ui("treninga", "sessions")}.</p>
       <div class="row"><label>Početak (ponedjeljak) <input type="date" id="plan-start" value="${ymd(nextMonday())}"></label><button class="btn primary" id="plan-go">Pokreni plan</button></div></div>`;
     $("#plan-go").onclick = () => { const v = $("#plan-start").value; if(!v) return;
-      const d = fromYmd(v); if(d.getDay() !== 1 && !confirm("Plan je složen od ponedjeljka. Ipak krenuti od " + shortDay(d) + "?")) return;
+      const d = fromYmd(v); if(d.getDay() !== 1 && !confirm(tr("Plan je složen od ponedjeljka. Ipak krenuti od " + shortDay(d) + "?"))) return;
       store.set("plan", { id: PLAN.id, start: v, done: {}, skipped: {}, times: { wk: "18:00", sun: "09:00" }, remind: 120 }); renderPlan(); };
     return;
   }
@@ -2038,7 +2386,7 @@ function renderPlan(){
       <p>${started ? `Tjedan ${week} od ${PLAN.weeks.length}` : `Počinje ${shortDay(fromYmd(p.start))}`} · ${shortDay(fromYmd(p.start))} – ${shortDay(end)}</p>
       <div class="pbar"><i style="width:${Math.round(done.length / ss.length * 100)}%"></i></div>
       <div class="pstats"><span><b>${done.length}</b>od ${ss.length} odrađeno</span><span><b>${missed.length}</b>propušteno</span><span><b>${hours.toFixed(1).replace(".", ",")}</b>h vožnje</span>${done.length + missed.length ? `<span><b>${Math.round(done.length / (done.length + missed.length) * 100)}%</b>dosljednost</span>` : ""}</div></div>
-    ${next ? `<div class="plan-card"><p>${next.today ? "Danas" : shortDay(next.date)} · ${next.label === "Ned" ? "duga vožnja" : next.label === "Uto" ? "prag" : "VO2max"}</p>
+    ${next ? `<div class="plan-card"><p>${next.today ? "Danas" : shortDay(next.date)} · ${next.day === "sun" ? "duga vožnja" : next.day === "tue" ? "prag" : "VO2max"}</p>
       <h3>${next.w.name}${/\d (min|h)$/.test(next.w.name) ? "" : ` · ${woMin(next.w)} min`}</h3><p>${next.w.desc}</p>
       <div class="row"><button class="btn primary" id="plan-ride">Vozi sada</button><button class="btn small" id="plan-next-more">Više</button></div></div>` : `<div class="plan-card"><h3>Plan je završen 🎉</h3><p>Odradi ramp test ako već nisi i postavi novi FTP.</p></div>`}
     <div class="weeks" id="plan-weeks"></div>
@@ -2060,7 +2408,7 @@ function renderPlan(){
     for(const x of wk){
       const b = document.createElement("button"); b.type = "button";
       b.className = [x.done && "done", x.skipped && "skipped", !x.done && !x.skipped && x.past && "missed", x.today && "today"].filter(Boolean).join(" ");
-      b.innerHTML = `<small>${x.label} ${x.date.getDate()}.${x.date.getMonth() + 1}. ${x.done ? "✓" : x.skipped ? "–" : ""}</small><b></b><small>${woMin(x.w)} min</small>`;
+      b.innerHTML = `<small>${tr(x.label)} ${shortDate(x.date)} ${x.done ? "✓" : x.skipped ? "–" : ""}</small><b></b><small>${woMin(x.w)} min</small>`;
       b.querySelector("b").textContent = x.w.name; b.onclick = () => openSession(x);
       el.querySelector(".sess").append(b);
     }
@@ -2070,8 +2418,8 @@ function renderPlan(){
   const saveTimes = () => planUpdate(q => { q.times = { wk: $("#plan-twk").value || "18:00", sun: $("#plan-tsun").value || "09:00" }; q.remind = +$("#plan-remind").value; });
   ["#plan-twk", "#plan-tsun", "#plan-remind"].forEach(id => $(id).onchange = saveTimes);
   $("#plan-ics").onclick = () => downloadIcs();
-  $("#plan-restart").onclick = () => { const v = prompt("Novi početak plana (GGGG-MM-DD, ponedjeljak):", p.start); if(v && /^\d{4}-\d{2}-\d{2}$/.test(v)) planUpdate(q => { q.start = v; }); };
-  $("#plan-stop").onclick = () => { if(confirm("Završiti plan? Vožnje ostaju u Povijesti.")){ store.set("plan", null); renderPlan(); } };
+  $("#plan-restart").onclick = () => { const v = prompt(tr("Novi početak plana (GGGG-MM-DD, ponedjeljak):"), p.start); if(v && /^\d{4}-\d{2}-\d{2}$/.test(v)) planUpdate(q => { q.start = v; }); };
+  $("#plan-stop").onclick = () => { if(confirm(tr("Završiti plan? Vožnje ostaju u Povijesti."))){ store.set("plan", null); renderPlan(); } };
 }
 function openSession(x){
   $("#sess-title").textContent = x.w.name;
@@ -2099,8 +2447,8 @@ function planIcs(p = plan()){
     const [hh, mm] = (x.day === "sun" ? p.times?.sun || "09:00" : p.times?.wk || "18:00").split(":").map(Number);
     const st = new Date(x.date); st.setHours(hh, mm, 0, 0); const en = new Date(st.getTime() + totalDur(x.w) * 1000);
     L.push("BEGIN:VEVENT", `UID:${p.id}-${p.start}-${x.id}@pedala`, `DTSTAMP:${utc(new Date())}`, `DTSTART:${loc(st)}`, `DTEND:${loc(en)}`,
-      `SUMMARY:${esc(`Pedala: ${x.w.name} (${woMin(x.w)} min)`)}`, `DESCRIPTION:${esc(`Tjedan ${x.week}. ${x.w.desc}\n${location.origin}/`)}`, `URL:${location.origin}/`,
-      "BEGIN:VALARM", "ACTION:DISPLAY", `DESCRIPTION:${esc("Trening: " + x.w.name)}`, `TRIGGER:-PT${p.remind || 120}M`, "END:VALARM", "END:VEVENT");
+      `SUMMARY:${esc(`Pedala: ${tr(x.w.name)} (${woMin(x.w)} min)`)}`, `DESCRIPTION:${esc(`${ui("Tjedan", "Week")} ${x.week}. ${tr(x.w.desc)}\n${location.origin}/`)}`, `URL:${location.origin}/`,
+      "BEGIN:VALARM", "ACTION:DISPLAY", `DESCRIPTION:${esc(ui("Trening: ", "Workout: ") + tr(x.w.name))}`, `TRIGGER:-PT${p.remind || 120}M`, "END:VALARM", "END:VEVENT");
   }
   L.push("END:VCALENDAR");
   return L.map(fold).join("\r\n") + "\r\n";
@@ -2112,14 +2460,14 @@ function downloadIcs(){
 /* once a day: what the plan says for today */
 function planToday(){
   const x = planSessions().find(s => s.today && !s.done && !s.skipped);
-  if(x && store.get("planToldOn", "") !== x.d){ store.set("planToldOn", x.d); notify(`Danas po planu: ${x.w.name} · ${woMin(x.w)} min. Otvori Plan → Vozi sada.`); }
+  if(x && store.get("planToldOn", "") !== x.d){ store.set("planToldOn", x.d); notify(ui(`Danas po planu: ${x.w.name} · ${woMin(x.w)} min. Otvori Plan → Vozi sada.`, `Today's plan: ${tr(x.w.name)} · ${woMin(x.w)} min. Open Plan → Ride now.`)); }
 }
 
 /* ============ sync (api/sync.js, Vercel Blob) ============
    Settings, the plan, imported workouts and routes go up as time-stamped sections; the newest wins and plan
    progress from both devices is merged. Rides go up and down one by one; deleted rides travel as tombstones.
    API keys and device-only settings stay on the device. */
-const SYNC_SKIP = ["ytKey", "icuKey", "clickMap", "voiceName"];
+const SYNC_SKIP = ["ytKey", "icuKey", "clickMap", "voiceName", "voiceLang", "uiLang"];
 var syncBusy = false, syncTimer = null, syncOff = false;   // var: store.set may call syncSoon before this line runs
 function syncSoon(){ clearTimeout(syncTimer); syncTimer = setTimeout(() => syncNow(), 3000); }
 const publicSettings = () => Object.fromEntries(Object.entries(settings).filter(([k]) => !SYNC_SKIP.includes(k)));
@@ -2172,7 +2520,8 @@ function setSyncStatus(msg){
   const last = store.get("syncLast", null);
   el.innerHTML = msg ? msg.replace(/</g, "&lt;")
     : syncOff ? "Sinkronizacija nije uključena. Na Vercelu otvori projekt → <b>Storage → Create → Blob</b> i poveži ga s projektom (doda <b>BLOB_READ_WRITE_TOKEN</b>), pa <b>Redeploy</b>. Nakon toga mobitel i tablet dijele vožnje, plan i postavke."
-    : last ? `Zadnja sinkronizacija ${new Date(last.at).toLocaleString("hr-HR", { day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" })} · ${last.rides} vožnji u oblaku${last.up || last.down ? ` (poslano ${last.up}, preuzeto ${last.down})` : ""}. Vožnje, plan, treninzi, rute i postavke dijele se između uređaja; API ključevi ostaju na uređaju.`
+    : last ? ui(`Zadnja sinkronizacija ${new Date(last.at).toLocaleString(LOC, { day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" })} · ${last.rides} vožnji u oblaku${last.up || last.down ? ` (poslano ${last.up}, preuzeto ${last.down})` : ""}. Vožnje, plan, treninzi, rute i postavke dijele se između uređaja; API ključevi ostaju na uređaju.`,
+      `Last sync ${new Date(last.at).toLocaleString(LOC, { day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" })} · ${last.rides} ${last.rides === 1 ? "ride" : "rides"} in the cloud${last.up || last.down ? ` (${last.up} sent, ${last.down} received)` : ""}. Rides, plan, workouts, routes and settings are shared between devices; API keys stay on each device.`)
     : "Još nije sinkronizirano.";
 }
 function refreshView(){
@@ -2201,7 +2550,7 @@ function reportHeader(r){
 }
 async function openReport(r){
   $("#rep-title").textContent = r.name;
-  $("#rep-sub").textContent = new Date(r.start).toLocaleString("hr-HR");
+  $("#rep-sub").textContent = new Date(r.start).toLocaleString(LOC);
   $("#rep-grid").innerHTML = reportHeader(r);
   $("#rep-body").innerHTML = ""; $("#dlg-report").showModal();
   renderReport($("#rep-body"), r);
@@ -2274,15 +2623,15 @@ function openSummary(){
   S.running = false; yt("pauseVideo");
   const m = metrics(S.samples, settings.ftp);
   if(!m || m.duration < 10){ toast("Prekratka vožnja za spremanje"); resetRide(); return; }
-  pendingRide = { id: "r-" + S.startMs, start: S.startMs, workoutId: S.workout?.id || null, name: S.workout ? S.workout.name : S.route ? S.route.name : "Slobodna vožnja", route: !!S.route, ftp: settings.ftp, maxHr: settings.maxHr,
+  pendingRide = { id: "r-" + S.startMs, start: S.startMs, workoutId: S.workout?.id || null, name: tr(S.workout ? S.workout.name : S.route ? S.route.name : "Slobodna vožnja"), route: !!S.route, ftp: settings.ftp, maxHr: settings.maxHr,
     samples: S.samples, m, laps: S.lap?.n ? [...S.laps, lapSummary(S.lap)] : [...S.laps] };
   $("#sum-title").textContent = pendingRide.name;
-  $("#sum-sub").textContent = new Date(S.startMs).toLocaleString("hr-HR");
+  $("#sum-sub").textContent = new Date(S.startMs).toLocaleString(LOC);
   $("#sum-grid").innerHTML = reportHeader(pendingRide); $("#sum-report").innerHTML = "";
   const ftpBox = $("#sum-ftp"); ftpBox.innerHTML = "";
   if(S.workout?.test === "ramp" && m.best.m1){
     const est = Math.round(m.best.m1 * .75);
-    ftpBox.innerHTML = `<p>Procjena FTP-a iz ramp testa: <b style="color:var(--text)">${est} W</b> (trenutni ${settings.ftp} W). Ako ti na treninzima bude preteško, spusti ga 5%.</p><div class="dlg-acts" style="justify-content:flex-start;margin-bottom:14px"><button class="btn small primary" id="set-ftp">Postavi ${est} W</button><button class="btn small" id="set-ftp95">Postavi ${Math.round(est*.95)} W</button></div>`;
+    ftpBox.innerHTML = `<p>${ui("Procjena FTP-a iz ramp testa:", "FTP estimate from the ramp test:")} <b style="color:var(--text)">${est} W</b> ${ui(`(trenutni ${settings.ftp} W). Ako ti na treninzima bude preteško, spusti ga 5%.`, `(now ${settings.ftp} W). If workouts feel too hard, lower it by 5%.`)}</p><div class="dlg-acts" style="justify-content:flex-start;margin-bottom:14px"><button class="btn small primary" id="set-ftp">Postavi ${est} W</button><button class="btn small" id="set-ftp95">Postavi ${Math.round(est*.95)} W</button></div>`;
     const setF = v => { settings.ftp = v; store.set("settings", settings); fillSettings(); toast("FTP postavljen na " + v + " W"); };
     $("#set-ftp").onclick = () => setF(est); $("#set-ftp95").onclick = () => setF(Math.round(est * .95));
   }
@@ -2301,17 +2650,20 @@ $("#sum-save").onclick = async () => {
   const r = pendingRide; $("#dlg-summary").close(); resetRide();
   const sess = planMarkRide(r); if(sess) toast(`Plan: ${sess.w.name} odrađen`);
   syncNow();
-  if(toIcu) syncIcu(); else if(confirm("Skinuti .FIT datoteku sada?")) downloadFit(r); };
-$("#sum-discard").onclick = () => { if(confirm("Odbaciti vožnju bez spremanja?")){ $("#dlg-summary").close(); resetRide(); } };
+  if(toIcu) syncIcu(); else if(confirm(tr("Skinuti .FIT datoteku sada?"))) downloadFit(r); };
+$("#sum-discard").onclick = () => { if(confirm(tr("Odbaciti vožnju bez spremanja?"))){ $("#dlg-summary").close(); resetRide(); } };
 $("#sum-resume").onclick = () => { $("#dlg-summary").close(); start(); };
 
 /* ============ settings ============ */
-function fillSettings(){ const f = $("#settings-form"); f.ftp.value = settings.ftp; f.weight.value = settings.weight; f.beep.checked = settings.beep; f.pauseVideo.checked = settings.pauseVideo; f.autoPause.checked = settings.autoPause; f.ytKey.value = settings.ytKey || ""; f.chainring.value = settings.chainring; f.cog.value = settings.cog; f.maxHr.value = settings.maxHr; f.voice.checked = settings.voice; fillVoices(); }
+function fillSettings(){ const f = $("#settings-form"); f.ftp.value = settings.ftp; f.weight.value = settings.weight; f.beep.checked = settings.beep; f.pauseVideo.checked = settings.pauseVideo; f.autoPause.checked = settings.autoPause; f.ytKey.value = settings.ytKey || ""; f.chainring.value = settings.chainring; f.cog.value = settings.cog; f.maxHr.value = settings.maxHr; f.voice.checked = settings.voice; f.uiLang.value = UI; fillVoices(); }
 $("#settings-form").addEventListener("input", e => { const f = e.currentTarget;
   const ftp = +f.ftp.value, wt = +f.weight.value; if(ftp >= 80 && ftp <= 600) settings.ftp = ftp; if(wt >= 30 && wt <= 200) settings.weight = wt;
   settings.beep = f.beep.checked; settings.pauseVideo = f.pauseVideo.checked; settings.autoPause = f.autoPause.checked; settings.ytKey = f.ytKey.value.trim();
   const cr = +f.chainring.value, cg = +f.cog.value; if(cr >= 20 && cr <= 60) settings.chainring = cr; if(cg >= 10 && cg <= 30) settings.cog = cg;
-  const mh = +f.maxHr.value; if(mh >= 120 && mh <= 230) settings.maxHr = mh; settings.voice = f.voice.checked; settings.voiceName = f.voiceName.value; hrVoice = null;
+  const mh = +f.maxHr.value; if(mh >= 120 && mh <= 230) settings.maxHr = mh; settings.voice = f.voice.checked; settings.voiceName = f.voiceName.value; settings.voiceLang = f.voiceLang.value; hrVoice = null; say.warned = false;
+  if(e.target.name === "voiceLang" || e.target.name === "voiceName") fillVoices();
+  if(e.target.name === "uiLang"){ settings.uiLang = f.uiLang.value; store.set("settings", settings);
+    if(S.started) toast(f.uiLang.value === "hr" ? "Jezik se mijenja kad završiš vožnju i ponovno otvoriš Pedalu." : "The language changes once you finish the ride and reopen Pedala."); else location.reload(); return; }
   store.set("settings", settings); });
 
 /* ============ navigation + wiring ============ */
@@ -2363,25 +2715,29 @@ function clickKeys(b){
 const CLICK_DEFAULT = { p: 1, m: -1 };
 const CLICK_DEBOUNCE_MS = 250;   // one shift per press, even if the pod repeats or bounces
 let clickLog = [], calib = null;
-function logClick(dir, b){ clickLog.unshift(`${new Date().toLocaleTimeString("hr-HR")} ${dir} ${hex(b)}`); clickLog = clickLog.slice(0, 30); const el = $("#click-log"); if(el) el.textContent = clickLog.join("\n"); }
+function logClick(dir, b){ clickLog.unshift(`${new Date().toLocaleTimeString(LOC)} ${dir} ${hex(b)}`); clickLog = clickLog.slice(0, 30); const el = $("#click-log"); if(el) el.textContent = clickLog.join("\n"); }
 function onClickKey(key){
   if(calib){
     if(calib.step === 1){ calib.plus = key; calib.step = 2; $("#clk-step").textContent = "Sad pritisni tipku za lakšu brzinu (−)."; }
     else if(key !== calib.plus){ settings.clickMap = { [calib.plus]: 1, [key]: -1 }; store.set("settings", settings); calib = null; $("#dlg-click").close(); toast("Tipke na Clicku postavljene"); }
+    else $("#clk-step").textContent = "To je ista tipka kao za +. Pritisni tipku za lakšu brzinu (−), na drugom dijelu Clicka ako ga ima.";
     return;
   }
   const map = Object.keys(settings.clickMap || {}).length ? settings.clickMap : CLICK_DEFAULT;
+  // keys set up before the two Click v2 pods were told apart: ask once to set them up again
+  if(key.includes(":") && !Object.keys(map).some(k => k.includes(":")) && Object.keys(map).some(k => k.startsWith("b"))){ startCalibration(); toast("Postavi tipke Clicka još jednom: sada se razlikuju lijevi i desni dio."); return; }
   const d = map[key] ?? (key === "p" ? 1 : key === "m" ? -1 : 0);
-  if(!d){ if(!onClickKey.warned){ onClickKey.warned = true; toast("Nepoznata tipka na Clicku. Postavi tipke u Postavkama."); } return; }
+  if(!d){ if(!onClickKey.warned){ onClickKey.warned = true; toast("Nepoznata tipka na Clicku. Postavi tipke u Postavkama (Zwift Click → Postavi tipke ispočetka)."); } return; }
   if(document.querySelector("dialog[open]")) return;
   const now = performance.now(); if(now - (onClickKey.last || 0) < CLICK_DEBOUNCE_MS) return; onClickKey.last = now;
   bump(d);
 }
-function startCalibration(){ calib = { step: 1 }; $("#clk-step").textContent = "Pritisni tipku za težu brzinu (+)."; $("#dlg-click").showModal(); }
+function startCalibration(){ if($("#dlg-click").open) return; calib = { step: 1 }; $("#clk-step").textContent = "Pritisni tipku za težu brzinu (+)."; $("#dlg-click").showModal(); }
 $("#dlg-click").addEventListener("close", () => { calib = null; });
 
 class ZwiftClick {
   constructor(onStatus){ this.onStatus = onStatus; this.down = new Set(); }
+  get tag(){ return String(this.device?.id || "x").replace(/[^\w]/g, "").slice(-6); }
   async connect(){ await this.attach(await navigator.bluetooth.requestDevice({ filters: [{ namePrefix: "Zwift" }], optionalServices: [ZW.v1, ZW.ride, "battery_service"] })); rememberDevice("clicks", this.device); }
   attach(dev){ this.device = dev; dev.addEventListener("gattserverdisconnected", () => this.reconnect()); return this.setup(); }
   async setup(){
@@ -2405,13 +2761,15 @@ class ZwiftClick {
     try{ await this.rx.writeValueWithoutResponse(d); }catch{ await this.rx.writeValueWithResponse(d); } }
   frame(b, isTx){
     this.answered = true;
-    logClick(isTx ? "tx" : "as", b);
+    logClick((isTx ? "tx " : "as ") + this.tag, b);
     if(isTx){
       if(b[0] === 0x52 && b[1] === 0x69 && this.kind === "ride" && !this.unlockSent){ this.unlockSent = true; this.send([0xff, 0x04, 0x00]).catch(() => {}); }
       if(b[0] === 0xff && b[1] === 0x03) toast("Ovaj dio Clicka je zaključan. Spoji ga jednom na Zwift pa probaj ponovno.");
       return;
     }
-    const keys = clickKeys(b); if(!keys) return;
+    let keys = clickKeys(b); if(!keys) return;
+    // Click v2 is two separate pods that can report the same button bit: key ids carry the pod
+    if(this.kind === "ride") keys = new Set([...keys].map(k => this.tag + ":" + k));
     for(const k of keys) if(!this.down.has(k)) onClickKey(k);     // act on press, not release
     this.down = keys;
   }
@@ -2485,12 +2843,12 @@ async function watchDevice(role, dev, make, already, onOk){
 }
 function renderBtState(){
   const el = $("#bt-auto-note"); if(!el) return;
-  const k = store.get("devices", {}), names = [k.trainer && "trenažer", k.hr && "pulsmetar", (k.clicks || []).length && "Click"].filter(Boolean);
+  const k = store.get("devices", {}), names = [k.trainer && tr("trenažer"), k.hr && tr("pulsmetar"), (k.clicks || []).length && "Click"].filter(Boolean);
   let html;
   if(btState.api === false) html = `<b>Ovaj Chrome ne pamti Bluetooth uređaje.</b> Otvori <b>chrome://flags</b>, potraži <b>Use the new permissions backend for Web Bluetooth</b>, postavi na <b>Enabled</b> i ponovno pokreni Chrome. Zatim jednom ručno spoji trenažer, puls i Click.`;
   else if(!names.length) html = "Još nijedan uređaj nije zapamćen. Spoji ga jednom ručno gumbom gore desno.";
-  else if(btState.permitted === 0) html = `Zapamćeno: ${names.join(", ")}, ali Chrome nije sačuvao dopuštenje. Spoji ih jednom ručno; ako se nakon ponovnog otvaranja opet ne spajaju, uključi <b>chrome://flags → Use the new permissions backend for Web Bluetooth</b>.`;
-  else html = `Zapamćeno: ${names.join(", ")}. ` + Object.entries(btState.roles).map(([r, t]) => `${BT_ROLES[r]}: ${t}`).join(" · ");
+  else if(btState.permitted === 0) html = ui(`Zapamćeno: ${names.join(", ")}, ali Chrome nije sačuvao dopuštenje. Spoji ih jednom ručno; ako se nakon ponovnog otvaranja opet ne spajaju, uključi`, `Remembered: ${names.join(", ")}, but Chrome did not keep the permission. Connect them by hand once; if they still don't connect after reopening, enable`) + " <b>chrome://flags → Use the new permissions backend for Web Bluetooth</b>.";
+  else html = `${ui("Zapamćeno", "Remembered")}: ${names.join(", ")}. ` + Object.entries(btState.roles).map(([r, t]) => `${tr(BT_ROLES[r])}: ${tr(t)}`).join(" · ");
   el.innerHTML = html; el.hidden = false;
 }
 $("#btn-bt-auto").onclick = () => { btHint.shown = false; autoConnect(); };
