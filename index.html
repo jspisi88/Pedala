@@ -1144,26 +1144,25 @@ const ytVolume = new WeakMap();   // player window → last volume it reported
 window.addEventListener("message", e => {
   if(!/youtube(-nocookie)?\.com$/.test(new URL(e.origin || "http://x").hostname)) return;
   let d; try{ d = typeof e.data === "string" ? JSON.parse(e.data) : e.data; }catch{ return; }
-  if(d?.event === "infoDelivery" && d.info && typeof d.info.volume === "number" && !duck.on) ytVolume.set(e.source, d.info.volume);
+  const f = ytFrames().find(x => x.contentWindow === e.source);
+  if(d?.event === "infoDelivery" && typeof d.info?.volume === "number" && f && f.dataset.ducked == null) ytVolume.set(e.source, d.info.volume);   // not our own lowered volume
 });
 /* ask a player to report its state (volume) back to us */
 function ytListen(f){ f.addEventListener("load", () => { try{ f.contentWindow.postMessage(JSON.stringify({ event: "listening", id: f.id || "music" }), "*"); }catch{} }); }
 const ytFrames = () => [$("#vid-frame"), $("#music-frame iframe")].filter(Boolean);
 const ytSend = (f, func, args = []) => { try{ f.contentWindow.postMessage(JSON.stringify({ event: "command", func, args }), "*"); }catch{} };
-const duck = { n: 0, on: false, t: null };
+const duck = { n: 0, t: null };
 function duckStart(u){
   const end = () => { duck.n = Math.max(0, duck.n - 1); if(!duck.n){ clearTimeout(duck.t); duck.t = setTimeout(unduck, 400); } };
   u.onend = u.onerror = end;
   setTimeout(() => { if(duck.n) end(); }, 1500 + String(u.text).length * 90);    // some Android voices never fire onend
   duck.n++; clearTimeout(duck.t);
-  if(duck.on) return;
-  duck.on = true;
-  for(const f of ytFrames()){ const v = ytVolume.get(f.contentWindow) ?? 100; f.dataset.vol = v; ytSend(f, "setVolume", [Math.round(v * .25)]); }
+  for(const f of ytFrames()) if(f.dataset.ducked == null){ const v = ytVolume.get(f.contentWindow) ?? 100; f.dataset.ducked = v; ytSend(f, "setVolume", [Math.round(v * .25)]); }
 }
+/* only players we turned down get their volume back; a player opened meanwhile is left alone */
 function unduck(){
   if(duck.n) return;
-  for(const f of ytFrames()) ytSend(f, "setVolume", [+(f.dataset.vol ?? 100)]);
-  duck.on = false;
+  for(const f of ytFrames()) if(f.dataset.ducked != null){ ytSend(f, "setVolume", [+f.dataset.ducked]); delete f.dataset.ducked; }
 }
 /* message as a toast and, in fullscreen, over the video */
 function notify(msg){

@@ -1,253 +1,108 @@
 # Pedala
 
-Aplikacija za vožnju na trenažeru u pregledniku, bez instalacije. Cijela aplikacija je jedna datoteka `index.html`. Na serveru su samo male Vercel funkcije: `api/youtube.js` za pretragu videa, `api/intervals.js` za slanje vožnji na intervals.icu i `middleware.js` za prijavu.
+**Indoor cycling in the browser.** Connect your smart trainer, heart rate strap and Zwift Click over Bluetooth, ride ERG workouts, pedal drills or real climbs, and watch YouTube while you ride. No app store, no subscription: one web page you deploy yourself, installable as an app on Android and desktop.
 
-## Što radi
+*[Hrvatski](README.hr.md)*
 
-- **Spajanje opreme preko Web Bluetootha:** trenažer (FTMS, npr. Direto XR-T), pulsmetar i Zwift Click (v1 i v2). Uređaje koje si jednom spojio aplikacija sama spaja kad se upale.
-- **ERG treninzi:** ugrađeni treninzi (izdržljivost, sweet spot, VO2max, prag, ramp test) i uvoz `.zwo` datoteka iz Zwifta. Snaga se računa iz FTP-a, a intenzitet se mijenja s − i +.
-- **Slobodna vožnja i GPX rute:** 24 virtualne brzine sa Zwiftovim omjerima. Kod GPX rute trenažer prati nagib terena.
-- **Ugrađeni usponi:**
-  - Sljeme (Cener), Učka – Vojak (od Poklona), Biokovo – Sveti Jure;
-  - Alpe d'Huez, Mont Ventoux (Bédoin), Passo dello Stelvio (Prato).
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fjspisi88%2FPedala&project-name=pedala&repository-name=pedala&env=PEDALA_PASSWORD&envDescription=Password%20for%20logging%20in%20to%20your%20Pedala&envLink=https%3A%2F%2Fgithub.com%2Fjspisi88%2FPedala%23environment-variables)
 
-  To su virtualne rute bez GPS traga, napravljene iz objavljenih nagiba po dionicama, pa je profil približan. Vožnja se sprema s visinom, ali bez karte. Za pravu rutu uvezi GPX.
-- **Pedal drills** (po uzoru na Zwiftove *Pedalling drills* i GC Coaching treninge kadence):
-  - Spin-ups;
-  - Visoka i niska kadenca;
-  - Snaga na niskoj kadenci;
-  - Kadencna piramida;
-  - Jedna noga.
+> The interface is in Croatian for now; an English translation is on its way. Voice announcements already speak English.
 
-  Svaki interval ima ciljanu kadencu i uputu, npr. „Samo lijeva noga“.
+## Features
 
-**Zwift Click v2** ima dva odvojena dijela koji mogu slati istu oznaku tipke, pa Pedala tipke razlikuje i po dijelu Clicka. Tipke se postavljaju u **Postavke → Zwift Click → Postavi tipke ispočetka**: prvo + na jednom dijelu, zatim − na drugom. Kadenca je zelena kad si u rasponu, a narančasta kad nisi. Glas najavljuje kadencu i javlja prosjek nakon svakog drilla. Uvoz `.zwo` čita i Zwiftove atribute `Cadence` i `CadenceResting`.
-- **YouTube video** uz vožnju: pretraga (uz besplatni API ključ) ili zalijepljen link. Gumb **Cijeli zaslon** prikazuje video preko cijelog ekrana sa snagom, ciljem ili nagibom, intervalom, kadencom, pulsom, vremenom i brzinom preko slike. YouTubeov vlastiti gumb za cijeli zaslon je isključen jer bi sakrio te podatke. Iza metrike je profil kao u Zwiftu: blokovi treninga u bojama zona (ili visinski profil rute), bijela crta snage i crvena crta pulsa. Puls se crta i na profilu ispod videa.
-- **Feed videa:** YouTube vanjskim aplikacijama ne daje osobne preporuke, pa odabir videa ima svoj feed:
-  - **Moji kanali:** najnoviji videi kanala koje dodaš (link kanala ili `@ime`);
-  - **Moje playliste:** tvoje javne ili nepopisane YouTube playliste;
-  - **Prijedlozi za danas:** tema dana s dugim videima vožnje, preskaču se već gledani; gumb *druga tema*.
+**Riding**
+- **Bluetooth devices:** FTMS smart trainers (e.g. Elite Direto XR-T), heart rate straps and Zwift Click v1/v2. Devices you connected once reconnect by themselves as soon as they are switched on.
+- **ERG workouts:** built-in workouts (endurance, sweet spot, VO2max, threshold, ramp test) and `.zwo` import from Zwift, including cadence targets.
+- **Pedal drills** with cadence targets and cues: spin-ups, high/low cadence, low-cadence torque, cadence pyramid, single leg.
+- **Heart-rate workouts:** power is steered to keep your heart rate in Zone 2.
+- **Free ride and GPX routes** with 24 virtual gears (Zwift ratios); the trainer follows the gradient.
+- **Built-in climbs:** Alpe d'Huez, Mont Ventoux, Passo dello Stelvio, and Sljeme, Učka and Biokovo in Croatia (profiles built from published gradients).
+- **Soft start:** flat road before the start and while paused, then power or gradient ramps back up, so the trainer never locks you into a heavy gear.
 
-  Rezultati se čuvaju nekoliko sati (tema cijeli dan) da dnevna kvota potraje, a kanali i playliste sinkroniziraju se između uređaja.
-- **Bez videa:** gumb **Bez videa: profil treninga** pretvara prostor za video u veliki profil treninga s metrikom na dnu, kao u cijelom zaslonu. Aplikacija pamti odabir.
-- **Glazba s YouTube Musica:** zalijepi link pjesme, albuma ili playliste (YouTube Music → Podijeli → Kopiraj vezu) ili potraži glazbu. Svira u malom prozoru u kutu, uz video ili uz profil, i ne pauzira se kad pauziraš vožnju. Gumbi ⏮ ⏯ ⏭ u traci playera rade i kad je player smanjen (⏮ i ⏭ samo za playliste i albume). Poseban API ne treba: YouTube Music nema javni API, ali su njegove pjesme i playliste obični YouTube videi i playliste. Pretraga koristi isti `YOUTUBE_API_KEY` uz filtar na kategoriju Music, a linkovi rade i bez ključa.
-- **Povijest:** metrike svake vožnje (NP, IF, TSS, kJ, najbolje snage) i izvoz u `.FIT` za Stravu, intervals.icu ili GoldenCheetah.
-- **intervals.icu:** svaka spremljena vožnja automatski ide na intervals.icu. Ako tablet nije na internetu, vožnja čeka i pošalje se kad se veza vrati.
-- **Izvještaj vožnje** (u sažetku na kraju i gumb **Izvještaj** u Povijesti), kao u Zwiftu:
-  - graf snage u bojama zona s crtom pulsa;
-  - tablica intervala s ciljem i izvedbom u %, uz broj pogođenih intervala (unutar ±5%);
-  - raspodjela snage i vrijeme u zonama pulsa;
-  - krivulja snage uspoređena s najboljom iz zadnjih 90 dana.
-- **Zone pulsa** iz maksimalnog pulsa u Postavkama (Z1 do 60%, Z2 60–70%, Z3 70–80%, Z4 80–90%, Z5 iznad). Puls je obojen po zoni u vožnji i u cijelom zaslonu.
-- **Intervali i dionice:** nakon svakog intervala kratko piše „Interval 4: 264 W od 265 (100%)“. U slobodnoj vožnji i na ruti svakih 5 km piše vrijeme, snaga i puls dionice.
-- **Glasovne najave na hrvatskom:** početak treninga, „Za 10 sekundi: 3 minute na 265 vata“, rezultat intervala i dionice, kraj treninga. Isključuju se u Postavkama.
-- **Trening po pulsu:** treninzi *Z2 po pulsu 60* i *90* sami namještaju snagu da puls ostane na 70% maksimalnog. Snaga se mijenja polako (najviše 1 W u sekundi) jer puls kasni za snagom. Tipke − i + mijenjaju ciljani puls za 2 bpm.
-- **Lagani start, bez „zakucavanja“:**
-  - prije starta i u pauzi trenažer je na ravnoj cesti umjesto ERG-a;
-  - nakon Kreni ili Nastavi otpor ostaje lagan dok kadenca ne prijeđe 55 rpm, a zatim se snaga (ERG) ili nagib (ruta, slobodna vožnja) kroz 12 sekundi vraća na zadano. Brzina na Clicku ili zaslonu se ne mijenja;
-  - ako u ERG-u kadenca padne ispod 45 rpm na 3 sekunde, otpor se spusti i opet postupno vrati;
-  - u treningu po pulsu snaga se ne diže 60 sekundi nakon nastavka, kad je kadenca ispod 70 ni kad pulsmetar ne šalje podatke.
-- Simulator ima i izmišljeni puls koji prati snagu, da se sve može isprobati bez pulsmetra.
-- **Napredak:** forma (CTL/ATL/TSB), tjedni volumen, najbolje snage i kretanje FTP-a.
-- **Sigurnosna kopija:** sve vožnje, treninzi, rute i postavke u jednoj `.json` datoteci.
+**Screen**
+- **YouTube while riding**, full screen with your numbers on top and a Zwift-style workout profile with a heart-rate line behind them.
+- **A video feed of your own:** newest videos from favourite channels, your own playlists and a ride theme of the day (YouTube offers apps no personal recommendations).
+- **Music from YouTube Music** in a small player with ⏮ ⏯ ⏭, or **no video at all:** a large workout profile instead.
+- **Voice announcements** in Croatian or English ("In 10 seconds: 3 minutes at 265 watts"); YouTube is turned down while the voice speaks.
+- **Heart-rate zones**, interval scoring and a phone layout that never scrolls while you ride.
 
-## Pokretanje
+**After the ride**
+- **Ride report** like Zwift's: power by zone with heart rate, interval scores, power distribution, time in HR zones, power curve against the last 90 days.
+- **Progress:** fitness/fatigue/form (CTL/ATL/TSB), weekly volume, best powers, FTP over time.
+- **14-week training plan** (short weekday sessions, long Sunday Zone 2 ride) with progress tracking and a calendar file with reminders.
+- **intervals.icu upload** of every ride, `.FIT` export for Strava, GoldenCheetah and others.
+- **Sync between phone and tablet** through Vercel Blob; backup and restore as a single `.json` file.
 
-Web Bluetooth radi samo u Chromeu ili Edgeu (laptop ili Android) i samo preko `https://` ili `localhost`. Safari i iOS ga nemaju.
+## Requirements
 
-Lokalno:
+Web Bluetooth works in **Chrome or Edge on Android, Windows, macOS, Linux and ChromeOS**, over `https://` or on `localhost`. Safari and iOS do not support it.
+
+## Deploy your own
+
+1. Click **Deploy with Vercel** above. Vercel copies the repository to your GitHub account and asks for `PEDALA_PASSWORD`.
+2. Optional, in **Project → Settings → Environment Variables** (then **Redeploy**):
+
+### Environment variables
+
+| Variable | What for |
+|---|---|
+| `PEDALA_PASSWORD` | Password for the login page (required: without it nobody gets in) |
+| `PEDALA_USER` | Login name (default `pedala`) |
+| `YOUTUBE_API_KEY` | YouTube Data API v3 key for searching videos, channels and playlists. In Google Cloud set *Application restrictions: None* and *API restrictions: YouTube Data API v3* (the key is used by the server, not the browser). |
+| `INTERVALS_API_KEY` | intervals.icu API key (*Settings → Developer Settings* on intervals.icu) |
+| `BLOB_READ_WRITE_TOKEN` | Added by Vercel when you create a Blob store: **Storage → Create → Blob**, *Private*, tick *Add a read-write token*. Enables sync between devices. |
+
+Every deploy is private to its owner: rides, plans and keys stay in your browser and your Vercel project.
+
+3. Open your site in Chrome, log in, then **⋮ → Add to Home screen → Install** to use it as an app.
+
+### Automatic reconnection
+
+Chrome only remembers Bluetooth devices with `chrome://flags/#enable-web-bluetooth-new-permissions-backend` set to **Enabled**. Restart Chrome, connect the devices once by hand, and from then on they connect by themselves. *Settings → Automatic connection* shows what is going on.
+
+### Voice
+
+Croatian announcements need a Croatian text-to-speech voice (Android: *Text-to-speech → Speech Services by Google → Install voice data → Croatian*). Without one, everything is spoken in English, or pick English under *Settings → Announcement language*.
+
+## Development
+
+The app is a single `index.html` with no build step. The server side is four small files: `middleware.js` (login), `api/sync.js` (Vercel Blob), `api/intervals.js` and `api/youtube.js` (proxies that keep keys on the server).
 
 ```bash
-python3 -m http.server 8000
-# otvori http://localhost:8000
+npm install
+npm run dev            # local server on http://localhost:8765 with fake intervals.icu, YouTube and Blob
 ```
 
-Bez trenažera možeš isprobati aplikaciju preko **Spoji trenažer → Simulator**. S parametrom `?simspeed=20` simulator radi 20 puta brže.
+Without a trainer use **Connect trainer → Simulator**; `?simspeed=20` runs the simulator 20× faster.
 
-## Deploy na Vercel
+Tests (Node 20+):
 
-Ne treba build ni `vercel.json`. Vercel sam poslužuje `index.html`, a `api/intervals.js` pokreće kao serverless funkciju.
+```bash
+npm i --no-save playwright && npx playwright install chromium
+npm test               # unit tests (login, sync) and end-to-end tests in Chromium
+```
 
-1. Na vercel.com odaberi **Add New → Project** i uvezi repozitorij `Pedala`.
-2. Framework Preset ostavi na **Other**, a Build Command i Output Directory ostavi prazne.
-3. Klikni **Deploy**. Vercel automatski daje `https://` adresu, pa Bluetooth radi.
-
-Svaki push na `main` automatski se ponovno deploya.
-
-### Vercel varijable
-
-U **Project → Settings → Environment Variables** dodaj ove varijable, pa pokreni **Redeploy**:
-
-| Varijabla | Za što |
+| Part | What it does |
 |---|---|
-| `PEDALA_PASSWORD` | šifra za prijavu (obavezno) |
-| `PEDALA_USER` | korisničko ime, ako ne želiš zadano `jspisic` |
-| `YOUTUBE_API_KEY` | YouTube ključ za pretragu videa |
-| `INTERVALS_API_KEY` | intervals.icu API ključ |
+| `BleTrainer`, `SimTrainer`, `BleHR`, `ZwiftClick`, `autoConnect` | Bluetooth devices, simulator, automatic reconnection |
+| `BUILTIN`, `parseZwo`, `PLAN`, `PLAN_WO` | Workouts, drills, training plan |
+| `parseGpx`, `CLIMBS`, `trainerGrade` | Routes, built-in climbs, virtual gears |
+| `tick`, `applyControl`, `softStep`, `steerHr` | Ride loop, soft start, heart-rate control |
+| `metrics`, `renderReport`, `drawProgress` | Metrics, ride report, progress |
+| `encodeFit` | FIT export |
+| `say`, `duckStart` | Voice announcements, turning YouTube down |
+| `syncNow`, `syncIcu` | Sync between devices, intervals.icu upload |
 
-Ključevi postavljeni na Vercelu ne gube se ni nakon deploya, ni na drugoj adresi (npr. preview deploy), ni nakon brisanja podataka preglednika, i nikad ne dolaze na tablet. Ključ upisan u Postavkama i dalje radi kao zamjena kad varijabla nije postavljena.
+Ride samples are `[t, power W, cadence, heart rate, speed cm/s, distance m]`, plus `lat, lon, elevation` on routes.
 
-YouTube ključ s Vercela Google prima sa servera, a ne iz preglednika. Zato u Google Cloud Consoleu za taj ključ postavi **Application restrictions: None**, a pod **API restrictions** ostavi samo YouTube Data API v3. S ograničenjem na web stranice Google će odbiti pretragu.
+Issues and pull requests are welcome.
 
-## Plan treninga
+## Credits and trademarks
 
-Kartica **Plan** vodi kroz plan *Održivi 14 tjedana*, prilagođen tako da su treninzi preko tjedna kratki:
+- Zwift Click protocol notes from [qdomyos-zwift](https://github.com/cagnulein/qdomyos-zwift) (QZ) and Torqa, used as documentation; no code was copied.
+- Pedal drills are inspired by Zwift's *Pedalling drills* and GC Coaching cadence sessions.
+- Zwift, Zwift Click, Elite Direto, Strava, intervals.icu, YouTube and YouTube Music are trademarks of their owners. Pedala is an independent project and is not affiliated with or endorsed by any of them.
 
-- **Utorak:** prag (threshold), najviše 30 min.
-- **Četvrtak:** VO2max, najviše 30 min.
+## License
 
-  Oba treninga postaju teža gušćim intervalima, a ne dužim trajanjem.
-- **Nedjelja:** zona 2 raste od 50 min do 3 h.
-- **Tjedni 4, 8 i 12** su lakši, a **14.** završava ramp testom.
-
-Plan se pokreće od odabranog ponedjeljka. Kartica pokazuje:
-- napredak (odrađeno, propušteno, sati, dosljednost);
-- sljedeći trening s gumbom **Vozi sada**;
-- svih 14 tjedana, gdje se trening može označiti kao odrađen ili preskočen.
-
-Spremljena vožnja plan-treninga sama se označi kao odrađena, ako je unutar ±4 dana od planiranog datuma.
-
-**Kalendar:** **Preuzmi kalendar (.ics)** daje svih 42 treninga s vremenom (utorkom i četvrtkom npr. u 18:00, nedjeljom u 9:00) i podsjetnikom. Google Kalendar podsjetnike iz uvezene datoteke zanemaruje, pa:
-1. napravi u njemu poseban kalendar *Pedala*;
-2. u njegovim postavkama dodaj obavijest (npr. 2 h prije);
-3. uvezi datoteku u taj kalendar.
-
-Samsung Kalendar i Outlook čitaju podsjetnik iz same datoteke.
-
-## Sinkronizacija između uređaja
-
-Mobitel i tablet dijele vožnje, plan i napredak, uvezene treninge, rute i postavke preko Vercel Blob spremišta (`api/sync.js`, iza iste prijave).
-
-Uključuje se jednom: na Vercelu otvori projekt, pa **Storage → Create → Blob**, poveži ga s projektom (doda `BLOB_READ_WRITE_TOKEN`) i pokreni **Redeploy**.
-
-Kako radi:
-- **Kada se sinkronizira:** pri otvaranju aplikacije, nakon spremanja ili brisanja vožnje, nakon promjene plana ili postavki, i ručno u **Postavke → Sinkronizacija**.
-- **Sukobi:** za postavke, treninge i rute pobjeđuje novija promjena. Odrađeni treninzi plana spajaju se s oba uređaja.
-- **Brisanje:** obrisana vožnja briše se i na drugim uređajima.
-- **Što ostaje na uređaju:** API ključevi (YouTube, intervals.icu), raspored tipki Clicka, odabrani glas i status slanja na intervals.icu.
-- **Privatnost:** datoteke su privatne kad Blob spremište to podržava, inače javne s nepogodivim imenom. Adrese nikad ne izlaze iz funkcije.
-
-## Instalacija kao aplikacija
-
-Pedala je PWA: ima manifest, ikone i service worker, pa je Chrome može instalirati kao aplikaciju. Instalirana se otvara preko cijelog ekrana, bez Chromeove trake, i ima svoju ikonu.
-
-1. Otvori stranicu u Chromeu i prijavi se.
-2. Klikni **⋮ → Dodaj na početni zaslon → Instaliraj**, ili prihvati ponudu za instalaciju kad se pojavi.
-3. Pokreni Pedalu s ikone na početnom zaslonu.
-
-Manifest, `sw.js` i ikone su javni (bez prijave), jer ih Chrome pri instalaciji dohvaća bez lozinke. U njima nema ničeg privatnog. Service worker ne presreće otvaranje stranice, pa prozor za prijavu radi i u instaliranoj aplikaciji.
-
-Postavke, vožnje i ključ ostaju isti, jer instalirana aplikacija dijeli podatke s Chromeom na istoj adresi.
-
-## Glas
-
-Najave su uvijek na jednom jeziku, nikad mješavina:
-- **Hrvatski:** ako uređaj ima hrvatski glas.
-- **Engleski:** ako uređaj nema hrvatski glas, ili ako je u **Postavke → Jezik najava** odabran English. Engleski vrijedi za sve rečenice, brojeve i upute drillova.
-
-Glas se može i ručno odabrati, a **Isprobaj glas** ga pušta.
-
-Dok glas govori, YouTube video i glazba se stišaju na četvrtinu, a zatim vrate na glasnoću koju su imali.
-
-Stranica je označena da je Chrome ne prevodi automatski (`translate="no"`).
-
-## Prijava
-
-Cijela stranica, uključujući `api/`, zaključana je prijavom (`middleware.js`). Prijava je vlastita stranica s imenom i lozinkom, pa je Chromeov upravitelj lozinki može automatski popuniti.
-
-Nakon prijave uređaj dobiva potpisani kolačić (`HttpOnly`, `Secure`) koji vrijedi godinu dana. Zato instalirana aplikacija ne traži prijavu ponovno ni nakon zatvaranja.
-
-Na Vercelu, u **Project → Settings → Environment Variables**:
-
-| Varijabla | Vrijednost |
-|---|---|
-| `PEDALA_PASSWORD` | tvoja lozinka (obavezno) |
-| `PEDALA_USER` | korisničko ime, ako ne želiš zadano `jspisic` |
-
-Zatim pokreni **Redeploy**. Dok `PEDALA_PASSWORD` nije postavljen, stranica nikoga ne pušta unutra.
-
-Kolačić je potpis korisničkog imena s lozinkom kao ključem. Promjena `PEDALA_PASSWORD` zato odjavljuje sve uređaje. Odjava s jednog uređaja je u **Postavke → Prijava**.
-
-API ključevi (YouTube, intervals.icu) ionako nisu u kodu. Nalaze se na Vercelu ili samo u pregledniku na tvom tabletu.
-
-## intervals.icu
-
-[intervals.icu](https://intervals.icu) je besplatan servis za analizu treninga (forma, krivulja snage, zone). Postavlja se jednom:
-
-1. Na intervals.icu otvori **Settings → Developer Settings** i stvori **API key**.
-2. Dodaj ga na Vercelu kao `INTERVALS_API_KEY` i pokreni Redeploy. Druga mogućnost je da ga na tabletu zalijepiš u **Postavke → intervals.icu**.
-3. U **Postavke → intervals.icu** klikni **Spremi i provjeri**. Ako je ključ ispravan, piše „Povezano: tvoje ime“.
-
-Kako radi:
-
-- Nakon spremanja vožnje Pedala napravi `.FIT` i pošalje ga preko `api/intervals.js` na intervals.icu. Funkcija samo prosljeđuje zahtjev, da aplikacija ne ovisi o tome dopušta li intervals.icu pozive izravno iz preglednika.
-- Ključ s Vercela ima prednost i nikad ne dolazi na tablet. Ključ iz Postavki sprema se na tabletu (`localStorage`, `pedala.settings`) i ulazi u sigurnosnu kopiju, pa tu datoteku ne dijeli s drugima.
-- Ako nema interneta, vožnja čeka u redu. Pošalje se kad se veza vrati, kad ponovno otvoriš aplikaciju ili nakon sljedećeg spremanja. Isto vrijedi ako ključ prestane vrijediti: vožnje čekaju dok ne upišeš novi.
-- U Povijesti svaka vožnja ima gumb **Na intervals.icu**, **Šaljem…**, **intervals.icu ↗** (otvara aktivnost) ili **Ponovi slanje** (kad je slanje palo). Tako se mogu poslati i starije vožnje.
-- intervals.icu ne stvara duplikate: ista datoteka poslana dvaput vraća postojeću aktivnost.
-- Automatsko slanje se isključuje u Postavkama. Tada ostaje ručni gumb u Povijesti.
-
-Na `localhost`-u slanje ne radi bez Vercela. Za lokalni test s funkcijom pokreni `npx vercel dev`.
-
-## Gdje se spremaju podaci
-
-**Vercel ne sprema nikakve podatke.** On samo poslužuje `index.html`. Sve se sprema u preglednik na uređaju na kojem voziš:
-
-| Podatak | Gdje |
-|---|---|
-| Vožnje (sekundni zapis i metrike) | IndexedDB, baza `pedala`, spremište `rides` |
-| Postavke, uvezeni treninzi, rute, uređaji, nedavni videi | `localStorage`, ključevi `pedala.*` |
-
-Posljedice:
-
-- Podaci se **ne sinkroniziraju** između uređaja. Vožnje s laptopa ne vidiš na mobitelu.
-- Brisanje podataka preglednika ili deinstalacija Chromea **briše sve vožnje**.
-- Podaci su vezani uz adresu stranice. Vožnje spremljene na `localhost` ne vide se na `pedala.vercel.app`, a ni na drugoj Vercel domeni ili adresi preview deploya.
-- Pri prvom spremanju vožnje aplikacija traži trajnu pohranu (`navigator.storage.persist()`), da Chrome ne obriše podatke kad ponestane mjesta.
-
-Zato redovito koristi **Povijest → Izvezi sigurnosnu kopiju**. Kopiju možeš uvesti na drugom uređaju ili adresi preko **Uvezi kopiju**. Uvoz ne stvara duplikate. Možeš i skidati `.FIT` u Stravu ili intervals.icu, koji onda služe kao vanjska arhiva.
-
-## Analitika (kartica Napredak)
-
-Sve se računa u pregledniku iz spremljenih vožnji:
-
-- **Zadnjih 30 dana:** broj vožnji, vrijeme, kilometri, TSS i kJ, uz postotnu promjenu prema prethodnih 30 dana.
-- **Forma:** kondicija (CTL, eksponencijalni prosjek dnevnog TSS-a kroz 42 dana), umor (ATL, kroz 7 dana) i forma (TSB = CTL − ATL od prethodnog dana). Graf prikazuje zadnjih 120 dana.
-- **Tjedni volumen:** sati po tjednu (tjedan počinje u ponedjeljak) za zadnjih 12 tjedana, s TSS-om iznad stupca.
-- **Najbolje snage:** 5 s, 1 min, 5 min i 20 min, ikad i u zadnjih 6 tjedana.
-- **FTP:** FTP iz postavki u trenutku svake vožnje, uz procjenu iz najboljih 20 minuta × 0,95.
-
-TSS i ostale metrike računaju se iz FTP-a koji je bio postavljen u trenutku vožnje.
-
-## Mogućnosti za sinkronizaciju u oblaku
-
-Ako želiš vidjeti iste podatke na više uređaja, to su opcije, od najjednostavnije prema najmoćnijoj:
-
-1. **intervals.icu** (već ugrađeno): vožnje se automatski šalju nakon spremanja, a analizu radi intervals.icu. Strava API je za nove aplikacije postao dostupan samo uz pretplatu, pa ga Pedala ne koristi. `.FIT` se u Stravu i dalje može uvesti ručno.
-2. **Vercel Blob:** jedna serverless funkcija (`api/rides.js`) sprema JSON kopiju. Jednostavno je, ali bez upita nad podacima.
-3. **Neon Postgres (Vercel Marketplace) ili Supabase:** tablice `rides` (metrike, a sekundni zapis kao JSONB ili u Blobu) i serverless API. Ovo je najbolje ako želiš analitiku kroz SQL i više korisnika. Treba dodati prijavu, npr. Supabase Auth ili tajni token u Vercel Environment Variables.
-
-U svim slučajevima IndexedDB ostaje lokalna baza, pa aplikacija radi i bez interneta, a sinkronizacija se samo dodaje nakon spremanja vožnje.
-
-## Struktura koda (`index.html`)
-
-| Dio | Što radi |
-|---|---|
-| `BleTrainer`, `SimTrainer`, `BleHR`, `ZwiftClick` | Bluetooth uređaji i simulator |
-| `BUILTIN`, `parseZwo` | Treninzi |
-| `parseGpx`, `gradeAt`, `trainerGrade` | GPX rute i virtualne brzine |
-| `tick`, `start`, `pause` | Petlja vožnje (1 uzorak u sekundi) |
-| `metrics` | NP, IF, TSS i najbolje snage |
-| `encodeFit` | Izvoz u FIT |
-| `dbAll`, `dbPut`, `dbDel` | IndexedDB |
-| `pmc`, `drawProgress` | Kartica Napredak |
-| `exportBackup`, `importBackup` | Sigurnosna kopija |
-| `icuSaveKey`, `syncIcu`, `icuUpload` | Povezivanje s intervals.icu i red slanja |
-| `api/intervals.js` | Vercel funkcija koja prosljeđuje upload na intervals.icu |
-| `api/youtube.js` | Vercel funkcija za pretragu videa s `YOUTUBE_API_KEY` |
-| `api/sync.js` | Vercel funkcija za sinkronizaciju (Vercel Blob) |
-| `PLAN`, `PLAN_WO`, `planSessions`, `renderPlan`, `planIcs` | Plan treninga i kalendar |
-| `syncNow` | Sinkronizacija na strani aplikacije |
-| `middleware.js` | Prijava (Basic Auth) ispred cijele stranice |
-
-Format uzorka u `ride.samples`: `[t, snaga W, kadenca, puls, brzina cm/s, udaljenost m]`, a za rute još `lat, lon, visina`.
+[MIT](LICENSE)

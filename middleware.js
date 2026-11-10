@@ -1,5 +1,5 @@
 // Vercel Routing Middleware: a login in front of the whole site, api/ included.
-// Username is PEDALA_USER (default "jspisic"), password is PEDALA_PASSWORD, both set in
+// Username is PEDALA_USER (default "pedala"), password is PEDALA_PASSWORD, both set in
 // Vercel → Project → Settings → Environment Variables. Without a password nobody gets in.
 // A successful login leaves a signed cookie for a year, so the installed app does not ask again
 // after it is closed. Changing PEDALA_PASSWORD logs every device out.
@@ -12,7 +12,7 @@ const COOKIE = "pedala_session", YEAR = 365 * 24 * 3600;
 export default async function middleware(request){
   const url = new URL(request.url);
   if(PUBLIC.test(url.pathname)) return;
-  const user = process.env.PEDALA_USER || "jspisic", pass = process.env.PEDALA_PASSWORD;
+  const user = process.env.PEDALA_USER || "pedala", pass = process.env.PEDALA_PASSWORD;
   if(!pass) return text("Prijava nije postavljena: na Vercelu dodaj PEDALA_PASSWORD i napravi Redeploy.", 503);
   const token = await sign(user, pass);
 
