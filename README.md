@@ -19,7 +19,9 @@ Aplikacija za vožnju na trenažeru u pregledniku, bez instalacije. Cijela aplik
   - Kadencna piramida;
   - Jedna noga.
 
-  Svaki interval ima ciljanu kadencu i uputu, npr. „Samo lijeva noga“. Kadenca je zelena kad si u rasponu, a narančasta kad nisi. Glas najavljuje kadencu i javlja prosjek nakon svakog drilla. Uvoz `.zwo` čita i Zwiftove atribute `Cadence` i `CadenceResting`.
+  Svaki interval ima ciljanu kadencu i uputu, npr. „Samo lijeva noga“.
+
+**Zwift Click v2** ima dva odvojena dijela koji mogu slati istu oznaku tipke, pa Pedala tipke razlikuje i po dijelu Clicka. Tipke se postavljaju u **Postavke → Zwift Click → Postavi tipke ispočetka**: prvo + na jednom dijelu, zatim − na drugom. Kadenca je zelena kad si u rasponu, a narančasta kad nisi. Glas najavljuje kadencu i javlja prosjek nakon svakog drilla. Uvoz `.zwo` čita i Zwiftove atribute `Cadence` i `CadenceResting`.
 - **YouTube video** uz vožnju: pretraga (uz besplatni API ključ) ili zalijepljen link. Gumb **Cijeli zaslon** prikazuje video preko cijelog ekrana sa snagom, ciljem ili nagibom, intervalom, kadencom, pulsom, vremenom i brzinom preko slike. YouTubeov vlastiti gumb za cijeli zaslon je isključen jer bi sakrio te podatke. Iza metrike je profil kao u Zwiftu: blokovi treninga u bojama zona (ili visinski profil rute), bijela crta snage i crvena crta pulsa. Puls se crta i na profilu ispod videa.
 - **Feed videa:** YouTube vanjskim aplikacijama ne daje osobne preporuke, pa odabir videa ima svoj feed:
   - **Moji kanali:** najnoviji videi kanala koje dodaš (link kanala ili `@ime`);
@@ -139,7 +141,13 @@ Postavke, vožnje i ključ ostaju isti, jer instalirana aplikacija dijeli podatk
 
 ## Glas
 
-Najave koriste hrvatski glas. Ako ga uređaj nema, najave su utišane, a u Postavkama piše kako ga instalirati, da ne bi hrvatski tekst čitao njemački ili engleski glas. Glas se može i ručno odabrati u **Postavke → Glas za najave**, a gumb **Isprobaj glas** ga pušta.
+Najave su uvijek na jednom jeziku, nikad mješavina:
+- **Hrvatski:** ako uređaj ima hrvatski glas.
+- **Engleski:** ako uređaj nema hrvatski glas, ili ako je u **Postavke → Jezik najava** odabran English. Engleski vrijedi za sve rečenice, brojeve i upute drillova.
+
+Glas se može i ručno odabrati, a **Isprobaj glas** ga pušta.
+
+Dok glas govori, YouTube video i glazba se stišaju na četvrtinu, a zatim vrate na glasnoću koju su imali.
 
 Stranica je označena da je Chrome ne prevodi automatski (`translate="no"`).
 

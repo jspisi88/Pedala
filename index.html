@@ -567,7 +567,8 @@ dialog.wide .sum{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}
         <p class="full note" style="margin:-4px 0 4px">Besplatan je: na console.cloud.google.com napravi projekt, uključi <b>YouTube Data API v3</b> i pod Credentials stvori API key. Dnevna kvota je dovoljna za oko 100 pretraga. Bez ključa i dalje možeš zalijepiti link.</p>
         <label class="full check"><input name="beep" type="checkbox"> Zvučni signal na promjeni intervala</label>
         <label class="full check"><input name="voice" type="checkbox"> Glasovne najave (sljedeći interval, rezultat intervala i dionice)</label>
-        <label class="full">Glas za najave<select name="voiceName"><option value="">Automatski (hrvatski)</option></select></label>
+        <label>Jezik najava<select name="voiceLang"><option value="auto">Automatski</option><option value="hr">Hrvatski</option><option value="en">English</option></select></label>
+        <label>Glas za najave<select name="voiceName"><option value="">Automatski</option></select></label>
         <div class="full dlg-acts" style="justify-content:flex-start;margin-top:-4px"><button class="btn small" type="button" id="btn-voice-test">Isprobaj glas</button></div>
         <p class="full note" id="voice-note" hidden></p>
         <label class="full check"><input name="pauseVideo" type="checkbox"> Pauziraj video kad pauziram trening</label>
@@ -1004,7 +1005,6 @@ function targetNow(){
 const hrTarget = s => Math.round(s.hr * settings.maxHr) + S.hrOff;
 const cadTxt = ([lo, hi]) => hi >= CAD_ANY ? `${lo}+` : `${lo}–${hi}`;
 const cadIn = (rpm, [lo, hi]) => rpm >= lo - 2 && rpm <= hi + 2;
-const cadSpeech = ([lo, hi]) => hi >= CAD_ANY ? `kadenca ${lo} i više` : `kadenca ${lo} do ${hi}`;
 /* heart-rate segment: nudge the ERG power toward the target heart rate. Heart rate lags power by
    a minute or so, hence the slow correction (max 1 W per second) and a ±2 bpm dead band. */
 function steerHr(c){
@@ -1040,11 +1040,11 @@ function lapTick(c, tgt){
     if(!S.lap || S.lap.seg !== c.i){
       const done = lapClose(); if(done) lapResult(done);
       lapOpen({ seg: c.i, name: `Interval ${c.i + 1}`, kind: c.s.free ? "free" : c.s.hr ? "hr" : "power", cadTgt: c.s.cad, note: c.s.note });
-      if(c.i === 0 && S.t <= 1) say(`Kreće trening. ${segSpeech(c.s)}.`);
+      if(c.i === 0 && S.t <= 1) say(() => `${L("Kreće trening.", "Workout starting.")} ${segSpeech(c.s)}.`);
     }
     // next segment in 10 seconds
     const nx = S.workout.segs[c.i + 1];
-    if(nx && Math.round(c.left) === 10 && c.s.d >= 20) say(`Za 10 sekundi: ${segSpeech(nx)}.`);
+    if(nx && Math.round(c.left) === 10 && c.s.d >= 20) say(() => `${L("Za 10 sekundi:", "In 10 seconds:")} ${segSpeech(nx)}.`);
   } else if(!S.workout){
     if(!S.lap) lapOpen({ name: `Dionica ${S.laps.length + 1}`, kind: "dist" });
     else if(S.dist - S.lap.d0 >= LAP_KM * 1000){ lapResult(lapClose()); lapOpen({ name: `Dionica ${S.laps.length + 1}`, kind: "dist" }); }
@@ -1060,66 +1060,111 @@ function lapResult(lap){
     // drills: report the cadence of the drill parts, stay quiet on recoveries
     if(lap.cadTgt[0] >= 100 || lap.cadTgt[1] <= 70){
       notify(`${lap.name}: ${lap.avgCad} rpm (cilj ${cadTxt(lap.cadTgt)})`);
-      say(`Prosječna kadenca ${lap.avgCad}.`);
+      say(() => L(`Prosječna kadenca ${lap.avgCad}.`, `Average cadence ${lap.avgCad}.`));
     }
     return;
   }
   if(lap.kind === "dist"){
     notify(`${lap.name}: ${fmtTime(lap.dur)} · ${lap.avgP} W${lap.avgHr ? " · " + lap.avgHr + " bpm" : ""}`);
-    say(`${Math.round(S.dist / 1000)} ${plural(Math.round(S.dist / 1000), "kilometar", "kilometra", "kilometara")}. Zadnjih ${LAP_KM} za ${sayDur(lap.dur)}, prosjek ${lap.avgP} ${plural(lap.avgP, "vat", "vata", "vata")}.`);
+    const km = Math.round(S.dist / 1000);
+    say(() => L(`${km} ${plural(km, "kilometar", "kilometra", "kilometara")}. Zadnjih ${LAP_KM} za ${sayDur(lap.dur)}, prosjek ${watts(lap.avgP)}.`,
+      `${km} kilometers. Last ${LAP_KM} in ${sayDur(lap.dur)}, average ${watts(lap.avgP)}.`));
   } else if(lap.score != null && lap.dur >= 30 && !S.workout?.test){
     const what = lap.kind === "hr" ? `${lap.avgHr} bpm od ${lap.tgt}` : `${lap.avgP} W od ${lap.tgt}`;
     notify(`${lap.name}: ${what} (${lap.score}%)`);
-    say(lap.kind === "hr" ? `Interval gotov. Prosječni puls ${lap.avgHr}.` : `Interval gotov. Prosjek ${lap.avgP} ${plural(lap.avgP, "vat", "vata", "vata")}, ${lap.score} posto.`);
+    say(() => lap.kind === "hr" ? L(`Interval gotov. Prosječni puls ${lap.avgHr}.`, `Interval done. Average heart rate ${lap.avgHr}.`)
+      : L(`Interval gotov. Prosjek ${watts(lap.avgP)}, ${lap.score} posto.`, `Interval done. Average ${watts(lap.avgP)}, ${lap.score} percent.`));
   }
 }
 
-/* ============ voice ============ */
+/* ============ voice ============
+   Announcements are spoken entirely in one language. Croatian needs a Croatian voice on the device; without one
+   (or when English is picked in Settings) every sentence and number is English, so voices never mix languages. */
 const plural = (n, one, few, many) => { n = Math.abs(Math.round(n)); const a = n % 10, b = n % 100; return a === 1 && b !== 11 ? one : a >= 2 && a <= 4 && (b < 12 || b > 14) ? few : many; };
-function sayDur(sec){
-  sec = Math.round(sec); const m = Math.floor(sec / 60), x = sec % 60;
-  const mm = m ? `${m} ${plural(m, "minuta", "minute", "minuta")}` : "", ss = x ? `${x} ${plural(x, "sekunda", "sekunde", "sekundi")}` : "";
-  return [mm, ss].filter(Boolean).join(" i ");
+const isHr = v => /^hr([-_]|$)/i.test(v?.lang || ""), isEn = v => /^en([-_]|$)/i.test(v?.lang || "");
+const voices = () => window.speechSynthesis?.getVoices() || [];
+let hrVoice = null;   // the voice in use (name kept from when it could only be Croatian)
+/* voice and language: a voice picked by hand wins; otherwise Croatian if asked for (or "auto") and available, else English */
+function pickVoice(){
+  const vs = voices(), byName = vs.find(v => v.voiceURI === settings.voiceName);
+  if(byName) return byName;
+  const want = settings.voiceLang || "auto", hr = vs.find(isHr);
+  if(want !== "en" && hr) return hr;
+  return vs.find(v => isEn(v) && /GB|US/i.test(v.lang) && v.localService) || vs.find(isEn) || null;
 }
+const spLang = () => isHr(hrVoice || pickVoice()) ? "hr" : "en";
+const L = (hr, en) => spLang() === "hr" ? hr : en;
+const watts = n => L(`${n} ${plural(n, "vat", "vata", "vata")}`, `${n} ${n === 1 ? "watt" : "watts"}`);
+const NOTE_EN = { "Visoka kadenca, mirno sjedi": "High cadence, stay seated", "Visoka kadenca": "High cadence", "Niska kadenca": "Low cadence",
+  "Niska kadenca, teški gaz": "Low cadence, big gear", "Samo lijeva noga": "Left leg only", "Samo desna noga": "Right leg only", "Obje noge": "Both legs" };
+function sayDur(sec){
+  sec = Math.round(sec); const m = Math.floor(sec / 60), x = sec % 60, hr = spLang() === "hr";
+  const mm = m ? (hr ? `${m} ${plural(m, "minuta", "minute", "minuta")}` : `${m} ${m === 1 ? "minute" : "minutes"}`) : "";
+  const ss = x ? (hr ? `${x} ${plural(x, "sekunda", "sekunde", "sekundi")}` : `${x} ${x === 1 ? "second" : "seconds"}`) : "";
+  return [mm, ss].filter(Boolean).join(hr ? " i " : " and ");
+}
+const cadSay = ([lo, hi]) => hi >= CAD_ANY ? L(`kadenca ${lo} i više`, `cadence ${lo} or more`) : L(`kadenca ${lo} do ${hi}`, `cadence ${lo} to ${hi}`);
 function segSpeech(sg){
-  const cue = sg.note ? sg.note + ". " : "", cad = sg.cad ? ", " + cadSpeech(sg.cad) : "";
-  return cue + segSpeechPower(sg) + cad;
+  const note = sg.note ? L(sg.note, NOTE_EN[sg.note] || sg.note) + ". " : "", cad = sg.cad ? ", " + cadSay(sg.cad) : "";
+  return note + segSpeechPower(sg) + cad;
 }
 function segSpeechPower(sg){
   const w = S.workout, d = sayDur(sg.d);
-  if(sg.free) return `${d} slobodno`;
-  if(sg.hr) return `${d} na pulsu ${hrTarget(sg)}`;
+  if(sg.free) return L(`${d} slobodno`, `${d} free riding`);
+  if(sg.hr) return L(`${d} na pulsu ${hrTarget(sg)}`, `${d} at heart rate ${hrTarget(sg)}`);
   const a = Math.round(toWatts(w, sg.lo) * S.bias), b = Math.round(toWatts(w, sg.hi) * S.bias);
-  return Math.abs(a - b) < 5 ? `${d} na ${a} ${plural(a, "vat", "vata", "vata")}` : `${d}, od ${a} do ${b} ${plural(b, "vat", "vata", "vata")}`;
-}
-/* The voice is the one picked in Settings, else a Croatian one. Without a Croatian voice the phone would
-   read the Croatian text with its default voice (often German or English), so then it stays silent
-   and says once in Settings how to install one. */
-let hrVoice = null;
-const voices = () => window.speechSynthesis?.getVoices() || [];
-function pickVoice(){
-  const vs = voices();
-  return vs.find(v => v.voiceURI === settings.voiceName) || vs.find(v => /^hr([-_]|$)/i.test(v.lang)) || null;
+  return Math.abs(a - b) < 5 ? L(`${d} na ${watts(a)}`, `${d} at ${watts(a)}`) : L(`${d}, od ${a} do ${watts(b)}`, `${d}, from ${a} to ${watts(b)}`);
 }
 function say(text, force = false){
   if(!(settings.voice || force) || !("speechSynthesis" in window)) return;
   try{
     hrVoice ||= pickVoice();
-    if(!hrVoice){ if(!say.warned && voices().length){ say.warned = true; notify("Nema hrvatskog glasa na uređaju. Upute su u Postavkama, kod Glasa za najave."); } return; }
-    const u = new SpeechSynthesisUtterance(text); u.voice = hrVoice; u.lang = hrVoice.lang; u.rate = 1.05;
-    speechSynthesis.speak(u);
+    if(!hrVoice) return;
+    if((settings.voiceLang === "hr") && !isHr(hrVoice) && !say.warned){ say.warned = true; notify("Nema hrvatskog glasa na uređaju, pa su najave na engleskom. Upute su u Postavkama."); }
+    const u = new SpeechSynthesisUtterance(typeof text === "function" ? text() : text); u.voice = hrVoice; u.lang = hrVoice.lang; u.rate = 1.05;
+    duckStart(u); speechSynthesis.speak(u);
   }catch{}
 }
 function fillVoices(){
-  const sel = $("#settings-form").voiceName, vs = voices(), hr = vs.filter(v => /^hr([-_]|$)/i.test(v.lang));
-  sel.innerHTML = `<option value="">Automatski (hrvatski)</option>` + [...hr, ...vs.filter(v => !hr.includes(v))]
+  const f = $("#settings-form"), sel = f.voiceName, vs = voices(), hr = vs.filter(isHr), en = vs.filter(v => isEn(v) && !hr.includes(v));
+  sel.innerHTML = `<option value="">Automatski</option>` + [...hr, ...en, ...vs.filter(v => !hr.includes(v) && !en.includes(v))]
     .map(v => `<option value="${v.voiceURI.replace(/"/g, "&quot;")}">${v.name.replace(/</g, "")} · ${v.lang}</option>`).join("");
   sel.value = vs.some(v => v.voiceURI === settings.voiceName) ? settings.voiceName : "";
-  const note = $("#voice-note");
-  note.hidden = hr.length > 0 || !vs.length;
-  note.innerHTML = "Na ovom uređaju nema hrvatskog glasa, pa su najave utišane da ih ne čita njemački ili engleski glas. Na Androidu: <b>Postavke → Opće upravljanje → Jezik → Pretvaranje teksta u govor → Google → Instaliraj glasovne podatke → Hrvatski</b>, pa ponovno otvori Pedalu. Ili ovdje odaberi neki drugi glas.";
+  f.voiceLang.value = settings.voiceLang || "auto";
+  const note = $("#voice-note"), using = pickVoice();
+  note.hidden = !vs.length;
+  note.innerHTML = !using ? "Na ovom uređaju nema glasa za najave."
+    : `Najave su na jeziku: <b>${isHr(using) ? "hrvatski" : "engleski"}</b> (${using.name.replace(/</g, "")}).`
+      + (hr.length ? "" : " Za hrvatske najave instaliraj hrvatski glas: <b>Postavke → Opće upravljanje → Jezik → Pretvaranje teksta u govor → Google → Instaliraj glasovne podatke → Hrvatski</b> (na Samsung tabletu: potraži <b>Tekst u govor</b>), pa ponovno otvori Pedalu.");
 }
 window.speechSynthesis?.addEventListener?.("voiceschanged", () => { hrVoice = null; say.warned = false; if($("#view-settings").classList.contains("active")) fillVoices(); });
+
+/* ---- turn YouTube (video and music) down while speaking, then back to the volume it had ---- */
+const ytVolume = new WeakMap();   // player window → last volume it reported
+window.addEventListener("message", e => {
+  if(!/youtube(-nocookie)?\.com$/.test(new URL(e.origin || "http://x").hostname)) return;
+  let d; try{ d = typeof e.data === "string" ? JSON.parse(e.data) : e.data; }catch{ return; }
+  if(d?.event === "infoDelivery" && d.info && typeof d.info.volume === "number" && !duck.on) ytVolume.set(e.source, d.info.volume);
+});
+/* ask a player to report its state (volume) back to us */
+function ytListen(f){ f.addEventListener("load", () => { try{ f.contentWindow.postMessage(JSON.stringify({ event: "listening", id: f.id || "music" }), "*"); }catch{} }); }
+const ytFrames = () => [$("#vid-frame"), $("#music-frame iframe")].filter(Boolean);
+const ytSend = (f, func, args = []) => { try{ f.contentWindow.postMessage(JSON.stringify({ event: "command", func, args }), "*"); }catch{} };
+const duck = { n: 0, on: false, t: null };
+function duckStart(u){
+  const end = () => { duck.n = Math.max(0, duck.n - 1); if(!duck.n){ clearTimeout(duck.t); duck.t = setTimeout(unduck, 400); } };
+  u.onend = u.onerror = end;
+  setTimeout(() => { if(duck.n) end(); }, 1500 + String(u.text).length * 90);    // some Android voices never fire onend
+  duck.n++; clearTimeout(duck.t);
+  if(duck.on) return;
+  duck.on = true;
+  for(const f of ytFrames()){ const v = ytVolume.get(f.contentWindow) ?? 100; f.dataset.vol = v; ytSend(f, "setVolume", [Math.round(v * .25)]); }
+}
+function unduck(){
+  if(duck.n) return;
+  for(const f of ytFrames()) ytSend(f, "setVolume", [+(f.dataset.vol ?? 100)]);
+  duck.on = false;
+}
 /* message as a toast and, in fullscreen, over the video */
 function notify(msg){
   if(!overlayOn()) toast(msg);
@@ -1192,7 +1237,7 @@ function start(){
 }
 function pause(auto){ S.running = false; S.autoPaused = !!auto; S.soft = null; applyControl(); if(settings.pauseVideo) yt("pauseVideo"); if(auto) notify("Pauza: nastavi pedalirati za nastavak"); render(); }
 function resume(){ S.running = true; S.autoPaused = false; S.idle = 0; softStart(); S.hrHold = 60; applyControl(); yt("playVideo"); toast("Nastavljam"); }
-function finishWorkout(){ S.running = false; S.soft = null; applyControl(); if(settings.beep) beep(660, .4); say(S.route ? "Stigao si na cilj." : "Trening je gotov. Bravo."); openSummary(); }
+function finishWorkout(){ S.running = false; S.soft = null; applyControl(); if(settings.beep) beep(660, .4); say(() => S.route ? L("Stigao si na cilj.", "You made it to the finish.") : L("Trening je gotov. Bravo.", "Workout complete. Well done.")); openSummary(); }
 
 /* ============ metrics ============ */
 function metrics(samples, ftp){
@@ -1274,7 +1319,7 @@ function setVideo(id){
   if(!id){ showPicker(); return; }
   const f = document.createElement("iframe"); f.id = "vid-frame";
   f.src = `https://www.youtube.com/embed/${id}?enablejsapi=1&playsinline=1&rel=0&modestbranding=1&fs=0${S.running ? "&autoplay=1" : ""}`;
-  f.allow = "autoplay; encrypted-media; picture-in-picture; fullscreen"; f.title = "YouTube video";
+  f.allow = "autoplay; encrypted-media; picture-in-picture; fullscreen"; f.title = "YouTube video"; ytListen(f);
   st.prepend(f); hidePicker(); store.set("video", id); store.set("stageMode", "video");
 }
 /* no video: the stage shows the workout profile with the metrics, like fullscreen */
@@ -1449,7 +1494,7 @@ function setMusic(m, play = true){
   const q = `enablejsapi=1&playsinline=1&rel=0${play ? "&autoplay=1" : ""}`, f = document.createElement("iframe");
   f.src = m.id ? `https://www.youtube.com/embed/${m.id}?${q}${m.list ? "&list=" + encodeURIComponent(m.list) : ""}`
     : `https://www.youtube.com/embed/videoseries?list=${encodeURIComponent(m.list)}&${q}`;
-  f.allow = "autoplay; encrypted-media"; f.title = "Glazba";
+  f.allow = "autoplay; encrypted-media"; f.title = "Glazba"; ytListen(f);
   fr.append(f); box.hidden = false; box.classList.remove("min");
   musicOn = play; $("#mus-play").textContent = play ? "⏸" : "▶"; $("#mus-prev").hidden = $("#mus-next").hidden = !m.list; $("#music-title").textContent = m.title || (m.list ? "Playlista" : "Glazba");
   store.set("music", m);
@@ -1491,7 +1536,7 @@ $("#mus-play").onclick = () => { musicOn = !musicOn; musicCmd(musicOn ? "playVid
 $("#mus-min").onclick = () => { const m = $("#music"); m.classList.toggle("min"); $("#mus-min").textContent = m.classList.contains("min") ? "+" : "–"; };
 $("#btn-dash").onclick = () => setDash();
 $("#vid-long").addEventListener("change", () => renderFeed());
-$("#btn-voice-test").onclick = () => { hrVoice = null; say("Za 10 sekundi: 3 minute na 265 vata, kadenca 90 do 100.", true); };
+$("#btn-voice-test").onclick = () => { hrVoice = null; fillVoices(); say(() => L("Za 10 sekundi: 3 minute na 265 vata, kadenca 90 do 100.", "In 10 seconds: 3 minutes at 265 watts, cadence 90 to 100."), true); };
 
 /* ============ sound + wake lock ============ */
 let actx;
@@ -2119,7 +2164,7 @@ function planToday(){
    Settings, the plan, imported workouts and routes go up as time-stamped sections; the newest wins and plan
    progress from both devices is merged. Rides go up and down one by one; deleted rides travel as tombstones.
    API keys and device-only settings stay on the device. */
-const SYNC_SKIP = ["ytKey", "icuKey", "clickMap", "voiceName"];
+const SYNC_SKIP = ["ytKey", "icuKey", "clickMap", "voiceName", "voiceLang"];
 var syncBusy = false, syncTimer = null, syncOff = false;   // var: store.set may call syncSoon before this line runs
 function syncSoon(){ clearTimeout(syncTimer); syncTimer = setTimeout(() => syncNow(), 3000); }
 const publicSettings = () => Object.fromEntries(Object.entries(settings).filter(([k]) => !SYNC_SKIP.includes(k)));
@@ -2311,7 +2356,8 @@ $("#settings-form").addEventListener("input", e => { const f = e.currentTarget;
   const ftp = +f.ftp.value, wt = +f.weight.value; if(ftp >= 80 && ftp <= 600) settings.ftp = ftp; if(wt >= 30 && wt <= 200) settings.weight = wt;
   settings.beep = f.beep.checked; settings.pauseVideo = f.pauseVideo.checked; settings.autoPause = f.autoPause.checked; settings.ytKey = f.ytKey.value.trim();
   const cr = +f.chainring.value, cg = +f.cog.value; if(cr >= 20 && cr <= 60) settings.chainring = cr; if(cg >= 10 && cg <= 30) settings.cog = cg;
-  const mh = +f.maxHr.value; if(mh >= 120 && mh <= 230) settings.maxHr = mh; settings.voice = f.voice.checked; settings.voiceName = f.voiceName.value; hrVoice = null;
+  const mh = +f.maxHr.value; if(mh >= 120 && mh <= 230) settings.maxHr = mh; settings.voice = f.voice.checked; settings.voiceName = f.voiceName.value; settings.voiceLang = f.voiceLang.value; hrVoice = null; say.warned = false;
+  if(e.target.name === "voiceLang" || e.target.name === "voiceName") fillVoices();
   store.set("settings", settings); });
 
 /* ============ navigation + wiring ============ */
@@ -2368,20 +2414,24 @@ function onClickKey(key){
   if(calib){
     if(calib.step === 1){ calib.plus = key; calib.step = 2; $("#clk-step").textContent = "Sad pritisni tipku za lakšu brzinu (−)."; }
     else if(key !== calib.plus){ settings.clickMap = { [calib.plus]: 1, [key]: -1 }; store.set("settings", settings); calib = null; $("#dlg-click").close(); toast("Tipke na Clicku postavljene"); }
+    else $("#clk-step").textContent = "To je ista tipka kao za +. Pritisni tipku za lakšu brzinu (−), na drugom dijelu Clicka ako ga ima.";
     return;
   }
   const map = Object.keys(settings.clickMap || {}).length ? settings.clickMap : CLICK_DEFAULT;
+  // keys set up before the two Click v2 pods were told apart: ask once to set them up again
+  if(key.includes(":") && !Object.keys(map).some(k => k.includes(":")) && Object.keys(map).some(k => k.startsWith("b"))){ startCalibration(); toast("Postavi tipke Clicka još jednom: sada se razlikuju lijevi i desni dio."); return; }
   const d = map[key] ?? (key === "p" ? 1 : key === "m" ? -1 : 0);
-  if(!d){ if(!onClickKey.warned){ onClickKey.warned = true; toast("Nepoznata tipka na Clicku. Postavi tipke u Postavkama."); } return; }
+  if(!d){ if(!onClickKey.warned){ onClickKey.warned = true; toast("Nepoznata tipka na Clicku. Postavi tipke u Postavkama (Zwift Click → Postavi tipke ispočetka)."); } return; }
   if(document.querySelector("dialog[open]")) return;
   const now = performance.now(); if(now - (onClickKey.last || 0) < CLICK_DEBOUNCE_MS) return; onClickKey.last = now;
   bump(d);
 }
-function startCalibration(){ calib = { step: 1 }; $("#clk-step").textContent = "Pritisni tipku za težu brzinu (+)."; $("#dlg-click").showModal(); }
+function startCalibration(){ if($("#dlg-click").open) return; calib = { step: 1 }; $("#clk-step").textContent = "Pritisni tipku za težu brzinu (+)."; $("#dlg-click").showModal(); }
 $("#dlg-click").addEventListener("close", () => { calib = null; });
 
 class ZwiftClick {
   constructor(onStatus){ this.onStatus = onStatus; this.down = new Set(); }
+  get tag(){ return String(this.device?.id || "x").replace(/[^\w]/g, "").slice(-6); }
   async connect(){ await this.attach(await navigator.bluetooth.requestDevice({ filters: [{ namePrefix: "Zwift" }], optionalServices: [ZW.v1, ZW.ride, "battery_service"] })); rememberDevice("clicks", this.device); }
   attach(dev){ this.device = dev; dev.addEventListener("gattserverdisconnected", () => this.reconnect()); return this.setup(); }
   async setup(){
@@ -2405,13 +2455,15 @@ class ZwiftClick {
     try{ await this.rx.writeValueWithoutResponse(d); }catch{ await this.rx.writeValueWithResponse(d); } }
   frame(b, isTx){
     this.answered = true;
-    logClick(isTx ? "tx" : "as", b);
+    logClick((isTx ? "tx " : "as ") + this.tag, b);
     if(isTx){
       if(b[0] === 0x52 && b[1] === 0x69 && this.kind === "ride" && !this.unlockSent){ this.unlockSent = true; this.send([0xff, 0x04, 0x00]).catch(() => {}); }
       if(b[0] === 0xff && b[1] === 0x03) toast("Ovaj dio Clicka je zaključan. Spoji ga jednom na Zwift pa probaj ponovno.");
       return;
     }
-    const keys = clickKeys(b); if(!keys) return;
+    let keys = clickKeys(b); if(!keys) return;
+    // Click v2 is two separate pods that can report the same button bit: key ids carry the pod
+    if(this.kind === "ride") keys = new Set([...keys].map(k => this.tag + ":" + k));
     for(const k of keys) if(!this.down.has(k)) onClickKey(k);     // act on press, not release
     this.down = keys;
   }
