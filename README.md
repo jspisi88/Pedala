@@ -6,8 +6,6 @@
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fjspisi88%2FPedala&project-name=pedala&repository-name=pedala&env=PEDALA_PASSWORD&envDescription=Password%20for%20logging%20in%20to%20your%20Pedala&envLink=https%3A%2F%2Fgithub.com%2Fjspisi88%2FPedala%23environment-variables)
 
-> The interface is in Croatian for now; an English translation is on its way. Voice announcements already speak English.
-
 ## Features
 
 **Riding**
@@ -23,7 +21,8 @@
 - **YouTube while riding**, full screen with your numbers on top and a Zwift-style workout profile with a heart-rate line behind them.
 - **A video feed of your own:** newest videos from favourite channels, your own playlists and a ride theme of the day (YouTube offers apps no personal recommendations).
 - **Music from YouTube Music** in a small player with ⏮ ⏯ ⏭, or **no video at all:** a large workout profile instead.
-- **Voice announcements** in Croatian or English ("In 10 seconds: 3 minutes at 265 watts"); YouTube is turned down while the voice speaks.
+- **English and Croatian:** the app follows your browser language; switch it any time under *Settings → Language*.
+- **Voice announcements** in English or Croatian ("In 10 seconds: 3 minutes at 265 watts"); YouTube is turned down while the voice speaks.
 - **Heart-rate zones**, interval scoring and a phone layout that never scrolls while you ride.
 
 **After the ride**
@@ -62,7 +61,7 @@ Chrome only remembers Bluetooth devices with `chrome://flags/#enable-web-bluetoo
 
 ### Voice
 
-Croatian announcements need a Croatian text-to-speech voice (Android: *Text-to-speech → Speech Services by Google → Install voice data → Croatian*). Without one, everything is spoken in English, or pick English under *Settings → Announcement language*.
+Croatian announcements need a Croatian text-to-speech voice (Android: *Text-to-speech → Speech Services by Google → Install voice data → Croatian*). Without one, everything is spoken in English, or pick a language under *Settings → Announcement language*. With the app in English, announcements are in English.
 
 ## Development
 
@@ -91,6 +90,7 @@ npm test               # unit tests (login, sync) and end-to-end tests in Chromi
 | `metrics`, `renderReport`, `drawProgress` | Metrics, ride report, progress |
 | `encodeFit` | FIT export |
 | `say`, `duckStart` | Voice announcements, turning YouTube down |
+| `tr`, `EN`, `EN_RX`, `ui` | English interface: the page is written in Croatian and translated as it renders |
 | `syncNow`, `syncIcu` | Sync between devices, intervals.icu upload |
 
 Ride samples are `[t, power W, cadence, heart rate, speed cm/s, distance m]`, plus `lat, lon, elevation` on routes.

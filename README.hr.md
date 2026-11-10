@@ -23,6 +23,7 @@
 - **YouTube uz vožnju** preko cijelog zaslona, s brojkama i profilom treninga kao u Zwiftu (s crtom pulsa).
 - **Feed videa:** najnoviji videi omiljenih kanala, tvoje playliste i tema dana.
 - **Glazba s YouTube Musica** u malom playeru s ⏮ ⏯ ⏭, ili **bez videa**: velik profil treninga.
+- **Hrvatski i engleski:** aplikacija prati jezik preglednika, a mijenja se u *Postavke → Jezik*.
 - **Glasovne najave** na hrvatskom ili engleskom. Dok glas govori, YouTube se stiša.
 - **Zone pulsa**, ocjena intervala i raspored za mobitel koji se ne pomiče dok voziš.
 

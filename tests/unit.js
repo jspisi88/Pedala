@@ -16,9 +16,11 @@ async function test(name, fn){ try{ await fn(); results.push(["ok", name]); }cat
   await test("middleware: install files are public", async () => {
     for(const p of ["/manifest.webmanifest", "/sw.js", "/icons/icon-192.png"]) assert.equal(await mw(req(p)), undefined, p);
   });
-  await test("middleware: pages show the login form, api answers 401", async () => {
+  await test("middleware: pages show the login form (Croatian or English), api answers 401", async () => {
     const page = await mw(req("/", { headers: { accept: "text/html" } }));
-    assert.equal(page.status, 200); assert.match(await page.text(), /action="\/__login"/);
+    const html = await page.text(); assert.equal(page.status, 200); assert.match(html, /action="\/__login"/);
+    assert.match(html, /Password/, "English without Accept-Language");
+    assert.match(await (await mw(req("/", { headers: { accept: "text/html", "accept-language": "hr-HR,hr;q=0.9,en;q=0.8" } }))).text(), /Lozinka/, "Croatian for a Croatian browser");
     assert.equal((await mw(req("/api/intervals"))).status, 401);
     assert.equal((await mw(req("/icons/../index.html", { headers: { accept: "text/html" } }))).status, 200);   // normalized to /index.html: login form
   });

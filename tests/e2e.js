@@ -14,8 +14,8 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
 (async () => {
   const srv = await start(), B = srv.url, browser = await chromium.launch(), pageErrors = [];
   /* a fresh browser profile; fake YouTube player that answers volume questions and records commands */
-  async function open({ viewport = { width: 1280, height: 860 }, speed = 100, voices = [], settings, mobile = false } = {}){
-    const ctx = await browser.newContext({ viewport, isMobile: mobile, hasTouch: mobile, acceptDownloads: true });
+  async function open({ viewport = { width: 1280, height: 860 }, speed = 100, voices = [], settings, mobile = false, locale = "hr-HR" } = {}){
+    const ctx = await browser.newContext({ viewport, isMobile: mobile, hasTouch: mobile, acceptDownloads: true, locale });
     const p = await ctx.newPage(); p.on("pageerror", e => pageErrors.push(e.message)); p.on("dialog", d => d.accept());
     await p.route("https://www.youtube.com/embed/**", r => r.fulfill({ contentType: "text/html", body: `<body><script>
       let vol = 70; addEventListener("message", e => { const d = JSON.parse(e.data);
@@ -96,6 +96,33 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     await hr.click('[data-view="settings"]'); await hr.click("#btn-voice-test"); await hr.waitForTimeout(300);
     assert.match((await hr.evaluate(() => __spoken))[0], /^Za 10 sekundi: 3 minute na 265 vata/);
     await en.context().close(); await hr.context().close();
+  });
+
+  await test("English: a browser in English gets the whole app in English, Croatian stays for Croatian", async () => {
+    const p = await open({ locale: "en-US", speed: 200 });
+    const croatian = /[čćžšđ]|\b(je|na|ili|se|za|od|nije|treba|nema|vožnj\w*|trening\w*|Postavke|Spoji|Kreni|Tjedan|Zona|Puls|Kadenca|Brzina|Glazba|Snaga|Vrijeme|Još|Sljedeće)\b/i;
+    const visible = () => p.evaluate(() => { const out = [], w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+      for(let n; (n = w.nextNode());){ const e = n.parentElement; if(e.closest("script,style,[data-notr]") || !e.getClientRects().length) continue; const t = n.nodeValue.trim(); if(t) out.push(t); }
+      document.querySelectorAll("[placeholder],[aria-label]").forEach(e => out.push(e.getAttribute("placeholder") || e.getAttribute("aria-label")));
+      return out; });
+    const left = [];
+    const check = async where => { for(const t of await visible()) if(croatian.test(t) && !/^(Učka|Sljeme|Biokovo)/.test(t)) left.push(where + ": " + t); };
+    await check("ride");
+    for(const v of ["plan", "workouts", "history", "progress", "settings"]){ await p.click(`[data-view="${v}"]`); await p.waitForTimeout(300); await check(v); }
+    await p.click('[data-view="plan"]'); if(await p.$("#plan-go")) await p.click("#plan-go"); await p.waitForTimeout(300); await check("plan started");   // the plan may have come from the sync test
+    await p.click("#chip-trainer"); await check("connect"); await p.click("#c-sim");
+    await p.evaluate(() => setWorkout(allWorkouts().find(w => w.id === "d-hilo"))); await p.click("#btn-start"); await p.waitForTimeout(2500); await check("riding");
+    await p.click("#btn-end"); await p.waitForTimeout(1200); await check("summary"); await p.click("#sum-save"); await p.waitForTimeout(600);
+    await p.click('[data-view="history"]'); await p.waitForTimeout(300); await p.locator("[data-rep]").first().click(); await p.waitForTimeout(1000); await check("report");
+    assert.deepEqual(left, []);
+    assert.equal(await p.textContent('[data-view="workouts"]'), "Workouts");
+    assert.equal(await p.evaluate(async () => (await dbAll()).sort((a, b) => b.start - a.start)[0].name), "High and low cadence", "ride saved under its English name");
+    await p.context().close();
+    const hr = await open({ locale: "en-US", settings: { ftp: 230 } });
+    assert.equal(await hr.textContent('[data-view="workouts"]'), "Treninzi", "a device that already used Pedala stays Croatian");
+    await hr.click('[data-view="settings"]'); await hr.selectOption('[name="uiLang"]', "en"); await hr.waitForLoadState("load"); await hr.waitForTimeout(400);
+    assert.equal(await hr.textContent('[data-view="workouts"]'), "Workouts", "switching the language in Settings");
+    await hr.context().close();
   });
 
   await test("Zwift Click v2: the two pods are told apart, + and − both work", async () => {
